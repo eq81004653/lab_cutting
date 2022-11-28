@@ -1,32 +1,25 @@
-module relay_feedback_osc(alarm,alarm_low,locked_low,test_n,test_p,LED,
-					  Gate_Ap,Gate_An,Gate_Bp,Gate_Bn,
-					  fault,Vq,Iq,SW,SW2,CS1,CS2,SCLK1,SCLK2,DIN1,DIN2,DOUT1,DOUT2,
-					  RS,RW,E,D,clk50MHz,LCD_out0,LCD_out1,LCD_out2,LCD_out3,LCD_csn,LCD_clk,LCD_INT,LCD_PD);
+module relay_feedback_osc(test_n,test_p,LED,
+					  Gate_Ap,Gate_Bp,SD,
+					  Vq,Iq,SW,CS2,SCLK2,DIN2,DOUT2,
+					  RS,RW,E,D,clk50MHz);
 					  
-input  SW,Vq,Iq,clk50MHz,DOUT1,DOUT2,SW2;
-output CS1,CS2,SCLK1,SCLK2,DIN1,DIN2;
-output alarm,alarm_low,locked_low,test_p,test_n;
-output Gate_Ap,Gate_An,Gate_Bp,Gate_Bn;
-output fault;
+input SW,Vq,Iq,clk50MHz,DOUT2;
+parameter jumper_off=1'b1;
+output CS2,SCLK2,DIN2;
+output test_p,test_n;
+output Gate_Ap,Gate_Bp,SD;
 output [7:0] D;
 output RS, RW, E; 
-output [6:0] LED;
-assign locked_low=standby? 1'b0:(~locked);
-parameter jumper_off=1'b1;
+output [2:0] LED;
 
 
 //test standby
-assign LED[6]=standby;
-assign LED[5]=standby0;
-assign LED[4]=locked;
+assign LED[2]=standby;
+assign LED[1]=standby0;
+assign LED[0]=locked;
 
-wire alarm_low;
-assign alarm_low=standby? clk1kHz:~alarm;
-
-wire alarm;
-assign alarm=clk0d6Hz & 1'b0;
-wire fault;
-assign fault=1'b0;
+parameter alarm=1'b0;
+parameter fault=1'b0;
 
 // ---------------Generate 10MHz, 14MHz and 100MHz clock signals ----------------//
 //                    10 MHz for frequency locking control                       //
@@ -53,14 +46,7 @@ assign clk1Hz=count[22];
 assign clk0d6Hz=count[24];
 assign clk0d3Hz=count[25];
 reg [25:0] count;
-reg [25:0] count_sweep;
-reg sweep_flag=1'b0;
-always @(posedge clk20MHz) 
-begin
-sweep_flag<=(count==26'd100)?1'd1:1'd0;
-count<=count+1'b1;
-//current_chang<=(sweep_flag==1'b1&&sweep==1'b1)?1'b1:1'b0;
-end
+always @(posedge clk20MHz) count<=count+1'b1;
 reg debounce_switch=1'b0;
 reg standby0=1'b1;  
 always @(posedge clk1kHz) 	debounce_switch<=~SW;
@@ -122,22 +108,59 @@ wire clk833Hz;
 assign clk833Hz=count_to_72_d3;
 wire [16:0] freq_smooth;
 LPF3  U25(.out(freq_smooth),.in(freq),.clk(clk833Hz)); // cutoff=833*1.25/60=17 Hz
-//-------------------------ADC get data-------------------------//
+//-------------------------Power Estimation-------------------------//
 wire signed [12:0] data2;
-wire channel,done2;
-reg signed [12:0] Vo, Io, Io_temp, Io_1d5;
+wire[1:0] channel;
+wire done2;
+	
+reg signed [12:0] Vo, Io, Io_temp, Io_1d5,PH,PO;
 AD7322 U3(.data(data2),.channel(channel),.done(done2),.CS(CS2),
           .SCLK(SCLK2),.DIN(DIN2),.DOUT(DOUT2),.clk20MHz(clk14MHz));
+			 
 always @(negedge done2) begin // read out @ negedge (data appears @ posedge)
   case(channel)
-   1'b0: begin  Io_temp<= Io; 		Vo <= data2; 	end
-	1'b1: begin  Io_1d5 <= Io_temp;  Io <= data2;   end
+   2'b00: begin  Io_temp<= Io; 		Vo <= data2; 	end
+	2'b01: begin  PH<= data2;   end
+	2'b10: begin  Io_1d5 <= Io_temp;  Io <= data2; 	end
+	2'b11: begin  PO <= data2; 	end
   endcase
 end
 
 wire signed [12:0] Io_1d25;
 assign Io_1d25= {Io_1d5[12],Io_1d5[12:1]}+{{2{Io_1d5[12]}},Io_1d5[12:2]}
                 +{{2{Io[12]}},Io[12:2]};
+	
+//----------------Get Current Level-----------------//
+
+wire[11:0] Io_1d25_abs;	//absolute of Io_1d25
+assign Io_1d25_abs=(Io[12])?(~Io[11:0]+1'b1):Io[11:0];
+
+
+reg[25:0] Io_accum;
+reg[11:0] Io_sum;
+reg[13:0] Io_count;
+
+wire done_Io_count;
+assign done_Io_count=&Io_count;	//sum 4096 Io_1d25_abs
+
+always@(posedge done2)
+begin
+	Io_count<=Io_count+1'b1;
+	if(done_Io_count)
+	begin
+		Io_sum<=Io_accum[25:14];
+		Io_accum<=26'b0;
+	end
+	else
+	begin
+		Io_sum<=Io_sum;
+		Io_accum<=Io_accum+Io_1d25_abs;
+	end
+end
+
+
+//----------------Get Current Level-----------------//	
+					 
 wire pulse340kHz,pulse340kHz_d,pulse340kHz_d2; //sample freq = 340kHz per channel  
 assign pulse340kHz=(~sample_d2)&sample_d; 
 assign pulse340kHz_d=(~sample_d3)&sample_d2;
@@ -147,47 +170,280 @@ always @(negedge clk14MHz) begin
 	sample_d4<=sample_d3;
 	sample_d3<=sample_d2;
 	sample_d2<=sample_d;
-	sample_d<=(~done2)&(~channel); // right after Vo being sampled
+	sample_d<=(~done2)&(channel==2'b01); // right after Vo being sampled
+end
+//--------------------- Instantaneous Power --------------------//
+wire signed [25:0] IV;
+mult U_IV(.clock(~pulse340kHz),.dataa(Vo), .datab(Io_1d25), .result(IV));
+reg  signed [31:0] accum=32'b0;
+wire signed [31:0] summation;
+assign summation=accum+{{6{IV[25]}},IV};
+reg  signed [31:0] total_power=32'b0;
+wire done_accum;//340kHz/64=5.3kHz
+assign done_accum=&count_accum;
+reg [5:0] count_accum=6'b0;  // sum of 64 instantaneous powers
+always @(posedge pulse340kHz_d2) begin
+     count_accum<=count_accum+6'b000001;
+	  if (done_accum) begin
+	        total_power<=summation;
+			  accum<=32'b0; end
+	  else begin
+	        total_power<=total_power;
+	        accum<=summation; end
+end
+wire signed [23:0] power, ave_power;                
+assign ave_power=total_power[31:8];  //cutoff=1.25/60*5.3kHz=110Hz
+LPF2 U155Hz(.out(power),.in(ave_power),.clk(~done_accum)); 
+wire [10:0] power32;//[9:0] power32;
+assign power32=power[23]?(~power[17:7]+1'b1):power[17:7];// 6 bits of fractional number //power[17:8];  
+// Power estimator output is 10-bit power32, among them there are
+// 5 digits for whole number and 5 digits for fractional number.
+// ex. power=0.5 Watt => power32= 10'b 00000 10000, namely 
+// power32 divided by 32 to get the estimated power in Watt.
+// power command = {2'b0,power_level,4'b0}
+
+
+//--------------------------Power Regulation--------------------------------//
+//         1) Transducer amplitude Dynamics: roughly 300 Hz                 //
+//         2) Power estimation delay: 1/5.3kHz=1.89e-4 s                    //
+//         3) Power estimation filtering: cutoff=110 Hz                     //
+//                                                                          //
+//             C(z) = (1/8)+(1/4)/(1-z^-1), fs = 332 Hz                     //
+//             GM= 42 dB, PM=85 degrees                                     //
+
+reg [3:0] count3;
+always @(posedge done_accum) count3<=count3+1'b1;
+reg clk332Hz, clk332Hz_d, clk332Hz_d2;
+always @(posedge clk14MHz) begin
+     clk332Hz_d2 <= clk332Hz_d;
+     clk332Hz_d <= clk332Hz;
+	  clk332Hz   <= count3[3];
+end
+//
+//
+////wire [8:0] set_point;
+////assign set_point=no_PLC? {power_level,4'b0}:setpoint_PLC;
+//wire [9:0] power_command;
+//LPF0 U100Hz(.out(power_command),.in(setpoint),.clk60kHz(~clk5kHz));
+//reg [9:0] c1, c2, c3, c4, c5, c6, c7;
+//wire [12:0] sum_c;
+//assign sum_c={3'b0,c7}+{3'b0,c6}+{3'b0,c5}+{3'b0,c4}
+//           +{3'b0,c3}+{3'b0,c2}+{3'b0,c1}+{3'b0,power_command};
+//reg [9:0] smooth_power_command;
+//
+//always @(posedge clk332Hz) begin
+//	 c7<=c6;	 c6<=c5; c5<=c4;
+//	 c4<=c3; c3<=c2; c2<=c1; c1<=power_command;
+//	 smooth_power_command<=sum_c[12:3];  // 332Hz/8 = 41.5 Hz
+//end	
+//
+//
+//parameter initial_duty=8'b1111000; // 120
+//wire signed [11:0] err;
+//assign  err={1'b0,power32}-{2'b0,smooth_power_command}; // 9-bit power_command < 16 W (only 4 bit for integer)
+//reg signed  [11:0] uI4={1'b0,initial_duty,3'b0};					
+//always @(posedge clk332Hz_d) begin
+//       uI4 <= locked? (uI4+err+windup_err):uI4;//{1'b0,initial_duty,2'b0};
+//end
+//wire signed [11:0] u4;
+//assign u4=uI4+{{2{err[11]}},err[11:2]}+{{3{err[11]}},err[11:3]};
+//
+//parameter lower_bound=8'b0;
+//parameter upper_bound=8'b10001100;  // 140
+//wire signed [11:0] upper_err,lower_err;
+//assign upper_err={1'b0,upper_bound,3'b0}-u4;
+//assign lower_err={1'b0,lower_bound,3'b0}-u4;
+//reg [7:0] pwm_in=initial_duty;
+//reg signed [11:0] windup_err;
+//always @(posedge clk332Hz_d2) begin
+//    if (upper_err[11]==1) begin
+//	      windup_err<={{2{upper_err[11]}},upper_err[11:2]};
+//			pwm_in<=upper_bound;  								end
+//	 else if (lower_err[11]==0) begin
+//	      windup_err<={{2{lower_err[11]}},lower_err[11:2]};
+//			pwm_in<=lower_bound;    			 				end
+//	 else  begin
+//			pwm_in<=u4[10:3];//locked? u4[9:2]:initial_duty; 
+//			windup_err=11'b0;  								  	end
+//end
+
+//---------------------------Fault Detection--------------------------------//
+//                    Open, Short, No_locking Detection                     //
+ 
+//  (1) Load Impedance Estimation
+//  integrate abs(Io) and abs(Vo) in four cycles of driving frequency 60kHz 
+//   high_impdenace=1 when sum|Io| < sum|Vo|/32;(higher than 2kohms)
+//  low_impedance =1 when sum |Io| > sum 4|Vo|; (lower than 10 ohms)
+reg [1:0] count_cycles=2'b0;
+wire four_cycles;
+assign four_cycles=&count_cycles;
+always @(posedge pulse60kHz)  count_cycles<=count_cycles+1'b1;
+reg four_cycles_d,four_cycles_d2,four_cycles_d3,four_cycles_d4;
+always @(posedge pulse340kHz) begin
+    four_cycles_d4<=four_cycles_d3;
+    four_cycles_d3<=four_cycles_d2;
+	 four_cycles_d2<=four_cycles_d;
+	 four_cycles_d<=four_cycles;
+end
+wire pulse_four_cycles,pulse_four_cycles_d,pulse_four_cycles_d2;
+assign pulse_four_cycles=four_cycles_d&(~four_cycles_d2);
+assign pulse_four_cycles_d=four_cycles_d2&(~four_cycles_d3);
+assign pulse_four_cycles_d2=four_cycles_d3&(~four_cycles_d4);
+
+wire signed [12:0] abs_Io, abs_Vo;
+assign abs_Io=Io[12]? (~Io+1'b1):Io;
+assign abs_Vo=Vo[12]? (~Vo+1'b1):Vo; 
+reg signed [17:0] accum_abs_Io, accum_abs_Vo;
+reg signed [12:0] sum_abs_Io, sum_abs_Vo;
+always @(posedge pulse340kHz_d) begin
+      if (pulse_four_cycles) begin
+		    sum_abs_Io<=accum_abs_Io[17:5];
+			 sum_abs_Vo<=accum_abs_Vo[17:5];
+			 accum_abs_Io<=18'b0;
+			 accum_abs_Vo<=18'b0; end
+		else begin
+		    accum_abs_Io<=accum_abs_Io+abs_Io;
+			 accum_abs_Vo<=accum_abs_Vo+abs_Vo; end 
+end
+wire signed [12:0] sum_abs_Io_f, sum_abs_Vo_f;
+LPF4 UU8(.out(sum_abs_Io_f),.in(sum_abs_Io),.clk(pulse_four_cycles_d));
+LPF4 UU9(.out(sum_abs_Vo_f),.in(sum_abs_Vo),.clk(pulse_four_cycles_d));
+
+wire signed [14:0] diff1;
+assign diff1={sum_abs_Vo_f,2'b0}-{2'b0, sum_abs_Io_f};  //negative when sum|Io| > sum 4|Vo|; (lower than 10 ohms)
+wire signed [14:0] diff2;
+assign diff2={sum_abs_Io_f,2'b0}-{7'b0, sum_abs_Vo_f[12:5]}; // negative when sum|Io| < sum|Vo|/64;(higher than 8 kohms)
+reg low_impedance=1'b0;
+reg low_impedance0=1'b0;
+reg high_impedance=1'b0;
+reg high_impedance0=1'b0;
+always @(posedge pulse_four_cycles_d) begin 
+    low_impedance0  <= low_impedance;
+    high_impedance0 <= high_impedance;
+end
+always @(posedge pulse_four_cycles_d2) begin
+    if (standby|transient) begin
+	      low_impedance  <= 1'b0;
+			high_impedance <= 1'b0; end
+	 else begin
+	      low_impedance  <= (low_impedance0|diff1[14]); //low_impedance =1 when Io > 4*Vo; (lower than 10 ohms)
+         high_impedance <= (high_impedance0|diff2[14]);//high_impdenace=1 when Io < Vo/32;(higher than 2kohms)
+    end
 end
 
-//-----------------------current level estimation-----------------------------//
-wire[12:0] current_abs;
-assign current_abs=(Io_1d25[12])?((~Io_1d25)+1'b1):Io_1d25;
-
-reg[12:0] current_avg;	//average of 64 Io
-reg[18:0] current_cum;
-reg[5:0] current_count;
-
-always@(posedge cycle)
-begin
-	current_count<=current_count+1'b1;
-	if(current_count==6'b111111)
-	begin
-		current_avg<=current_cum[18:6];
-		current_cum<=19'b0;
-	end
-	else
-	begin
-		current_avg<=current_avg;
-		current_cum<=current_cum+current_abs;
-	end
+// no_locking=1 when locked=0 lasts for more than 1 second
+wire [12:0] sum_no_locking;
+assign sum_no_locking=count_no_locking+{12'b0,~locked};
+wire sure_no_locking;
+assign sure_no_locking=&sum_no_locking;
+reg [12:0] count_no_locking=13'b0;
+wire clear_count;
+assign clear_count=shutdown|locked|transient;
+always @(posedge pulse_four_cycles_d) begin
+     no_locking0<=no_locking;
+     if (clear_count) count_no_locking<=13'b0;
+	  else  count_no_locking<=sure_no_locking? count_no_locking:sum_no_locking;
+end
+reg no_locking0=1'b0;
+reg no_locking=1'b0;
+always @(posedge pulse_four_cycles_d2) begin
+     if (standby|transient) no_locking<= 1'b0;
+	  else         no_locking<= (no_locking0|sure_no_locking);
 end
 
-//--to smooth current--//
+//parameter threashold=14'b00110100000000; //3328 (9.75V)
+//wire signed [13:0] diff3;
+//assign diff3=threashold-{ave_power_set[12],ave_power_set};
+//wire no_command0;
+//assign no_command0=diff3[13];
+//reg no_command;
+//always @(standby) no_command<=no_command0&(~standby);
+//reg alarm_temp=1'b0;
+//always @(negedge pulse_four_cycles_d2) alarm_temp<=|{no_command,low_impedance,high_impedance,no_locking};
 
-reg [10:0] a1, a2, a3, a4, a5, a6, a7;
-wire [13:0] sum_a;
-assign sum_a={{3{a7[10]}},a7}+{{3{a6[10]}},a6}+{{3{a5[10]}},a5}+{{3{a4[10]}},a4}
-           +{{3{a3[10]}},a3}+{{3{a2[10]}},a2}+{{3{a1[10]}},a1}+{{3{current_avg[12]}},current_avg[12:2]};
-reg [10:0] smooth_current;
+//no use
+//
+//
+////------------To determine the power level and display it on LED---------------//
+//// Power level set by the PLC/pot when jumper_off = 0/1 with/no jumper across  // 
+//// PIN_34 and GND:                                                             //
+////                                                                             //
+//// level   :  0	 1	   2	  3    4	   5	  6	 7 	8	  9	 10   11    12  //
+//// power(W):  0  0.5  1.2  1.5  1.8  2.1  2.3  2.5  2.7  2.9   3.1  3.2   3.3  //
+////                                                                             //
+//// level   : 13   14   15   16   17   18   19   20   21   22    23   24        //
+//// power(W):3.4  3.5  3.6  3.7  3.9  4.2  4.5  5.0  5.5  6.0   7.0  8.0        //
+//
+//wire signed [12:0] data1;
+//wire set_by_which,done1;
+//reg signed [12:0] power_set_pot, power_set_PLC;
+//
+////use AD7323 4-channel
+///*
+//AD7322 U4(.data(data1),.channel(set_by_which),.done(done1),.CS(CS1),
+//          .SCLK(SCLK1),.DIN(DIN1),.DOUT(DOUT1),.clk20MHz(clk1d25MHz));
+//
+//always @(negedge done1) begin // read out @ negedge (data appears @ posedge)
+//  case(set_by_which)
+//   1'b0: power_set_pot <= data1;
+//	1'b1: power_set_PLC <= data1;
+//  endcase
+//end
+//*/
+//
+//wire no_PLC;
+//assign no_PLC=jumper_off;
+//reg signed [12:0] power_set;
+//always @(negedge clk300Hz) power_set<=no_PLC? power_set_pot:power_set_PLC;
+//wire signed [12:0] ave_power_set;  	// cutoff=1.25kHz/60kHz*300Hz=6.25Hz
+//LPF4 U6d25Hz2(.out(ave_power_set),.in(power_set),.clk(clk300Hz)); 
+////begin
+////  	if (first_1s|third_1s)  power_set<=13'b0110110011000;//13'b0111000010100;//13'b0111001100110;   // 9/10*4096
+////	else if (second_1s) power_set<=no_PLC? power_set_pot:power_set_PLC;
+////	else power_set<=no_PLC? power_set_pot:power_set_PLC;
+////end
+//
+//
+//
+//
+//wire signed [13:0] shifted_power_level;
+//assign shifted_power_level={ave_power_set[12],ave_power_set}+14'b00110111001101;//+3533=(12-3.375)/10*4096  
+//                                                           //14'b00110100010100; '00000010011001'                                                      
+//parameter increment=14'b00000100110011; //307=0.75/10*4096;
+//reg signed [13:0]  sweep_level=14'b0;
+//wire signed [13:0] sum_level;
+//assign sum_level=shifted_power_level-sweep_level;
+//reg [4:0] count_level_0=5'b0;
+//reg [4:0] level=5'b0; 
+//wire initial_high;
+//assign initial_high=first_1s|third_1s;
+//wire FS;
+//assign FS=(count_level_0==24);
+//reg no_command0=1'b0;
+//always @(posedge clk5kHz) begin
+//    if (sum_level[13]) begin
+//	       level <= initial_high? 5'b11000:count_level_0;
+//	       sweep_level<=14'b0;
+//			 count_level_0<=5'b0; 
+//			 no_command0<=1'b0; end
+//	 else if (FS) begin 
+//	       level <= 5'b0;
+//			 sweep_level<=14'b0;
+//			 count_level_0<=5'b0; 
+//			 no_command0<=1'b1; end
+//			 
+//	 else begin
+//	       sweep_level<=sweep_level+increment;
+//			 count_level_0<=(count_level_0+1'b1); end
+//
+//end
+//wire [9:0] setpoint;
+//assign setpoint=desired_power[level];  
+//
+//reg [9:0] desired_power[24:0];
+//initial $readmemb("power_level_PLC2.txt",desired_power,0,24);   
 
-always @(negedge clk300Hz) begin
-	 a7<=a6;	 a6<=a5; a5<=a4;
-	 a4<=a3; a3<=a2; a2<=a1; a1<=current_avg[12:2];
-	 smooth_current<=sum_a[13:3];
-end
-
-
+		 
 
 //----------------------- Relay-Feedback Oscillator --------------------------//
 //wire [4:0] n;
@@ -201,32 +457,11 @@ wire cycle;
 //  n_1=frequency*(2^24)/(50e6)  //
 //-------------------------------------//
 wire [14:0] n_ico;
-parameter[14:0] start_point=15'd20199;	//20133=60kHz
-													//20803=62kHz
-reg [14:0]chang_point;						//20636=61.5kHz 
-													//20300=60.5kHz 
-													//20468=61kHz
-													
+parameter[14:0] start_point=15'd20133;	//20133=60kHz  20803=62kHz
 
-//assign n_ico=PI_control+{11'b0,clk300Hz_d2,3'b0};	//with PI control
+assign n_ico=PI_control+{7'b0,clk300Hz_d2,7'b0};	//with PI control
 //assign n_ico=start_point+{6'b0,clk300Hz_d2,8'b0};	//no PI control, test delta
 //assign n_ico=start_point;
-
-//assign n_ico=chang_point;
-//assign n_ico=(TX_FINISH)?start_point:chang_point;
-//assign n_ico=(!TX_FINISH||LCD_begin)?chang_point:start_point;
-//assign n_ico=(TX_FINISH)?PI_control+{6'b0,clk300Hz_d2,8'b0}:chang_point;
-
-//assign n_ico=(sweep==1'd1)?start_point:(TX_FINISH)?PI_control+{6'b0,clk300Hz_d2,8'b0}:chang_point;
-
-
-//assign n_ico=(!TX_FINISH||LCD_begin)?chang_point:(sweep==1'd1)?start_point:PI_control+{6'b0,clk300Hz_d2,8'b0};
-assign n_ico=(!TX_FINISH||LCD_begin/*||LCD_lock*/)?chang_point:(sweep==1'd1||stop_freq==1'b1)?start_point:PI_control+{9'b0,clk300Hz_d2,5'b0};
-
-
-//assign n_ico=(TX_FINISH)?start_point:chang_point;
-
-
 ICO U6_1(.out(cycle), .increment(n_ico), .clk50MHz(clk50MHz));
 
 //----------Three-Pulse PWM in syncrony with switching command cycle---------//
@@ -236,14 +471,30 @@ ICO U6_1(.out(cycle), .increment(n_ico), .clk50MHz(clk50MHz));
 //              or at standby.                                               //
 wire [1:0] pwm_drive,pwm_out;
 wire shutdown;
-assign shutdown=standby;	//output control by sw 
+//assign shutdown=1'b0; //always turn on
+assign shutdown=standby;	//output control by sw
+//assign shutdown=|{standby,(~|level),alarm_temp};
+ 
 assign pwm_drive=shutdown? 2'b0:pwm_out; 
+three_pulses_pwm2 U7(.pwm_drive(pwm_out),.in(8'd35),.cycle(cycle),
+//three_pulses_pwm2 U7(.pwm_drive(pwm_out),.in(pwm_in),.cycle(cycle),
+                     .clk100MHz(clk100MHz));
 
-parameter pwm_in=8'd130;	//output power
 
-three_pulses_pwm2 U7(.pwm_drive(pwm_out),.in(pwm_in),.cycle(cycle),.clk100MHz(clk100MHz));
-
+//assign SD=(standby)?1'b1:(!pwm_drive[0]);
+assign SD=(standby);
+//assign SD=1'b1; //for test							
 							
+//no dead time							
+reg Gate_Ap,Gate_Bp;
+reg clk25MHz;
+always @(negedge clk50MHz) clk25MHz<=~clk25MHz;
+always @(posedge clk25MHz) begin
+	  Gate_Ap<=(pwm_drive[1])?pwm_drive[0]:1'b0;
+	  Gate_Bp<=(!pwm_drive[1])?pwm_drive[0]:1'b0;
+end							
+							
+/*							
 
 //---------------------------Dead Time = 0.52 us ----------------------------//
 //      Convert the PWM commands pwm_drive[1:0] of two half bridges          //
@@ -263,7 +514,7 @@ assign delayed_driveA=delay_lineA[k_13];
 assign delayed_driveB=delay_lineB[k_13];
 reg [15:0] delay_lineA,delay_lineB;
 reg Gate_Ap,Gate_An,Gate_Bp,Gate_Bn;
-
+//reg t_Gate_Ap,t_Gate_An,t_Gate_Bp,t_Gate_Bn;
 always @(posedge clk25MHz) begin
 	  Gate_Ap<=pwm_drive[0]&delayed_driveA;
 	  Gate_Bp<=pwm_drive[1]&delayed_driveB;
@@ -273,6 +524,8 @@ always @(posedge clk25MHz) begin
 	  delay_lineB[k]<=pwm_drive[1];
 end
 
+*/
+
 //-------------------Phase Regualtion with Tunable Delay---------------------//
 
 reg locked_temp=1'b0;
@@ -280,6 +533,9 @@ wire locked;
 assign locked=&{locked_temp,~shutdown,~alarm};
 wire [8:0] abs_theta_f;
 assign abs_theta_f=theta_f[8]? (~theta_f+1'b1):theta_f;
+//always @(posedge standby) 	u<=u+1;
+//always @(posedge clk600Hz) u<=theta_f[8]?(u-1):(u+1);
+//always @(negedge clk600Hz) locked_temp<=~|abs_theta_f[8:4]; 
 parameter tolerance=9'b000000101;	// 5
 wire signed [8:0] dead_zone;
 assign dead_zone=abs_theta_f - tolerance;
@@ -320,8 +576,7 @@ reg [7:0] kk;
 always @(negedge clk10MHz_inv) kk<=kk+8'b00000001;
 wire [7:0] kk_N_u,k1,k2;
 parameter N=8'b01000100;//7'b1101000;  // 221
-parameter shift=8'd60;
-//parameter shift=8'b00001000;
+parameter shift=8'b00001000;
 assign kk_N_u=kk-u;//-{1'b0,u};  kk_N_u=kk-N-u;
 assign k1=kk-8'b00100000+shift;  		  //kk-32
 assign k2=kk-8'b01001010+shift;  		  //kk-74
@@ -356,25 +611,11 @@ always @(posedge clk10MHz_inv) begin
 			 sum_VI<=9'b0;
 			 sum_VI_d<=9'b0; end
 		else begin
-		    sum_VI<=(!cycle^Is)? (sum_VI+1'b1):sum_VI;	//use cycle to replace Vs
-			 sum_VI_d<=(!cycle^Is_d)? (sum_VI_d+1'b1):(sum_VI_d-1'b1); end 
+		    sum_VI<=(Vs^Is)? (sum_VI+1'b1):sum_VI;
+			 sum_VI_d<=(Vs^Is_d)? (sum_VI_d+1'b1):(sum_VI_d-1'b1); end 
 end
 wire signed [8:0] theta_f;
 LPF1d25kHz U8(.out(theta_f),.in(theta),.clk60kHz(pulse60kHz_d));
-
-//--to smooth theta--//
-
-reg signed [8:0] b1, b2, b3, b4, b5, b6, b7;
-wire signed [11:0] sum_b;
-assign sum_b={{3{b7[8]}},b7}+{{3{b6[8]}},b6}+{{3{b5[8]}},b5}+{{3{b4[8]}},b4}
-           +{{3{b3[8]}},b3}+{{3{b2[8]}},b2}+{{3{b1[8]}},b1}+{{3{theta_f[8]}},theta_f};
-reg signed [8:0] smooth_theta;
-
-always @(negedge clk2d5kHz) begin
-	 b7<=b6;	 b6<=b5; b5<=b4;
-	 b4<=b3; b3<=b2; b2<=b1; b1<=theta_f;
-	 smooth_theta<=sum_b[11:3];  //2.5kHz/8=312.5 Hz
-end
 
 
 //-----PI contorl start-------//
@@ -390,225 +631,8 @@ end
 wire clk300Hz_pulse;	//rise at negedge of clk300Hz_d1, use for change n_ico
 assign clk300Hz_pulse=(~clk300Hz_d1)&clk300Hz_d2;
 
-
-reg TX=1'b1;
-reg TX_FINISH=1'b1;
-reg[19:0]TX_count_bit=20'b0;
-reg[8:0]TX_out;
-reg[12:0]TX_data;
-reg[5:0]TX_choose=6'b0;
-reg LCD_begin=1'b0;
-reg LCD_lock=1'b0;
-
-
-//output reg [1:0]test=2'd1;  
-reg [9:0]LCD_lock_count=10'd0;
-reg [9:0]LCD_begin_count=10'd0;
-reg [9:0]TX_FINISH_count=10'd0;
-reg [9:0]stop_freq_count=10'd0;
-
-reg sweep=1'd0;
-reg chang;
-reg sweep_delay;
-reg delay_chang;
-
-wire LCD_sweep;
-wire LCD_run;
-wire LCD_LOCK;
-wire LCD_OFF;
-wire [3:0]LCD_freq_cho;
-
-reg run=1'b0;
-reg OFF=1'b0;
-reg LOCK=1'b0;
-reg [3:0]freq_cho=4'd0;
-reg current_chang=1'b0;
-reg[14:0]map_current;
-
-reg stop_freq=1'b1;
-reg stop_freq_flag;
-reg [1:0]lock_state=2'b0;
-
-always@(negedge clk20MHz) 
-begin
-	
-	
-	current_chang<=(TX_FINISH_count==10'd100&&sweep==1'b1)?1'b1:1'b0;
-	stop_freq<=(TX_choose==6'd24&&stop_freq_flag==1'd1)?1'b0:(TX_choose==6'd0||TX_choose==6'd1||TX_choose==6'd13)?1'b1:stop_freq;
-	
-	
-	///////////////////////sweep/////////////////////////////
-	
-	if(LCD_sweep==1'b1) 		begin	sweep<=1'b1;run<=1'b0;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd0;end
-	
-	
-	else if(SW2==1'b0) 		begin	sweep<=1'b1;run<=1'b0;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd0;end
-	
-		
-	else if(sweep_flag==1'b1&&sweep==1'b1)
-		begin
-		
-		if(TX_choose==6'd13)
-			begin TX_choose<=TX_choose;sweep<=1'd0;chang<=chang;end
-		else 
-			begin TX_choose<=TX_choose+6'd1;sweep<=sweep;chang<=~chang; end
-		end
-	
-	
-	/////////////////begin///////////////////////////////////	
-	else if(LCD_run==1'b1)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd1;end
-	
-	/////////////////OFF/////////////////////////////////////	
-	else if(LCD_OFF==1'b1)	begin	sweep<=1'b0;run<=1'b0;OFF<=1'b1;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd13;end
-	
-	/////////////////LOCK/////////////////////////////////////
-	else if(LCD_LOCK==1'b1)	begin	sweep<=1'b0;run<=1'b0;OFF<=1'b0;LOCK<=1'b1;freq_cho<=4'd0;TX_choose<=6'd24;end
-	
-	/////////////////30k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd1)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd2;TX_choose<=6'd2;end
-	
-	/////////////////31k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd2)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd15;TX_choose<=6'd15;end
-	
-	/////////////////32k///////////////////////////////////
-	else if(LCD_freq_cho==4'd3)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd4;TX_choose<=6'd4;end
-	
-	/////////////////33k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd4)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd5;TX_choose<=6'd5;end
-	
-	/////////////////34k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd5)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd6;TX_choose<=6'd6;end
-	
-	/////////////////35k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd6)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd7;TX_choose<=6'd7;end
-	
-	/////////////////36k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd7)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd8;TX_choose<=6'd8;end
-	
-	/////////////////37k///////////////////////////////////
-	else if(LCD_freq_cho==4'd8)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd9;TX_choose<=6'd9;end
-	
-	/////////////////38k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd9)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd10;TX_choose<=6'd10;end
-	
-	/////////////////39k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd10)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd11;TX_choose<=6'd11;end
-	
-	/////////////////40k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd11)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd12;TX_choose<=6'd12;end
-	
-	
-	else 
-		begin	run<=(LCD_begin_count>=10'd28)?1'd0:run;  OFF<=(LCD_begin_count>=10'd28)?1'd0:OFF;  LOCK<=(LCD_begin_count>=10'd28)?1'd0:LOCK;  freq_cho<=(LCD_begin_count>=10'd28)?4'd0:freq_cho; TX_choose<=TX_choose;end
-	
-	
-	
-	
-end
-
-
-
-
-
-
-//always@(posedge clk50MHz) 
-always@(posedge count[18]) 
-begin
-
-//	if(SW2==0)
-//	begin
-//		TX_FINISH<=1'd0;
-//	end
-	
-	delay_chang<=chang;
-	TX_FINISH_count<=(chang^delay_chang==1'd0&&sweep==1'd1)?TX_FINISH_count+10'd1:10'd0;
-	TX_FINISH<=(TX_FINISH_count<=10'd27&&sweep==1'd1)?0:1;
-	
-	
-
-	
-
-	LCD_begin_count<=(run==1'd1||OFF==1'd1||LOCK==1'd1||freq_cho!=4'd0)?LCD_begin_count+10'd1:10'd0;
-	LCD_begin<=(LCD_begin_count<=10'd28&&(run==1'b1||OFF==1'b1||LOCK==1'd1||freq_cho!=4'd0))?1'd1:1'd0;				
-		
-	
-	stop_freq_count<=(TX_choose==6'd24)?(stop_freq_count<=10'd100)?stop_freq_count+10'd1:stop_freq_count:10'd0;
-	stop_freq_flag<=(stop_freq_count>=10'd30)?1'd1:1'd0;
-	
-	
-	
-	
-	
-//	LCD_lock_count<=(LOCK==1'b1&&LCD_lock_count<=10'd50)?LCD_lock_count+10'd1:10'd0;
-//	LCD_lock<=(LOCK==1'b1&&LCD_begin_count<=10'd27)?1'd1:1'd0;
-//	lock_state<=(lock_state==2'd3)?2'd0:(LOCK==1'b1&&LCD_lock_count==10'd29)?lock_state+2'd1:lock_state;
-	
-
-//	TX_FINISH_count<=(TX_FINISH_count==10'd228)?10'd0:TX_FINISH_count+10'd1;
-//
-//	TX_FINISH<=(TX_FINISH_count<=10'd200)?1:0;
-	
-	
-	
-
-	case (TX_choose)
-		6'd2:begin  TX_data<=13'b0101010101011; end		//30kHz		0
-		6'd14:begin  TX_data<=13'b0101010101101; end		//30.5kHz	1
-		6'd3:begin  TX_data<=13'b0101010110011; end		//31kHz		2
-		6'd15:begin  TX_data<=13'b0101010110101; end		//31.5kHz	3
-		6'd4:begin  TX_data<=13'b0101011001011; end		//32kHz		4
-		6'd16:begin  TX_data<=13'b0101011001101; end		//32.5kHz	5
-		6'd5:begin  TX_data<=13'b0101011010011; end		//33kHz		6
-		6'd17:begin  TX_data<=13'b0101011010101; end		//33.5kHz	7
-		6'd6:begin  TX_data<=13'b0101100101011; end		//34kHz		8
-		6'd18:begin  TX_data<=13'b0101100101101; end		//34.5kHz	9
-		6'd7:begin  TX_data<=13'b0101100110011; end		//35kHz		10
-		6'd19:begin  TX_data<=13'b0101100110101; end		//35.5kHz	11
-		6'd8:begin  TX_data<=13'b0101101001011; end		//36kHz		12
-		6'd20:begin  TX_data<=13'b0101101010011; end		//36.5kHz	13
-		6'd9:begin  TX_data<=13'b0101101010101; end		//37kHz		14
-		6'd21:begin  TX_data<=13'b0110010101011; end		//37.5kHz	15
-		6'd10:begin  TX_data<=13'b0110010101101; end		//38kHz		16
-		6'd22:begin  TX_data<=13'b0110010110011; end		//38.5kHz	17
-		6'd11:begin  TX_data<=13'b0110010110101; end		//39kHz		18
-		6'd23:begin  TX_data<=13'b0110011001011; end		//39.5kHz	19
-		6'd12:begin  TX_data<=13'b0110011001101; end		//40kHz		20
-		6'd1:begin  TX_data<=13'b0110011010011; end		//RUN 		21
-		6'd13:begin  TX_data<=13'b0110011010101; end		//stop		22
-		6'd0:begin  TX_data<=13'b0110100101011; end		//SWEEP		23
-		6'd24:begin  TX_data<=13'b0110100101101; end		//LOCK  		24
-		default:	begin  TX_data<=13'b1111111111111; end
-	endcase
-
-	
-	
-	
-	
-	if(TX_FINISH==1'b0||LCD_begin==1'b1/*||LCD_lock==1'b1*/)
-	begin
-		if(TX_count_bit==20'd13)
-		begin
-			TX<=0;
-			TX_count_bit<=20'b0;
-//			TX_FINISH<=(SW2==1)?1:0;
-		end
-		else
-		begin
-			TX_count_bit<=TX_count_bit+20'd1;
-			TX<=TX_data[TX_count_bit];
-		end
-		
-		
-		chang_point=(TX)?15'd20200:15'd20290;
-		
-	end
-	
-end
-
-
-
 wire signed[8:0] theta_3deg;
-assign theta_3deg=theta-3'd15;
+assign theta_3deg=theta-3'd5;
 reg signed[8:0] theta_past,theta_f_past;
 
 always@(posedge clk300Hz)
@@ -647,7 +671,15 @@ reg signed [16:0] accum_I={start_point,2'b0};
 always@(posedge clk300Hz_pulse) 
 begin 
 	// accumulator for integration
-	accum_I <= temp_accum_I;  
+	// lock frequency when frequency in lower then 55kHz or higher then 63kHz
+	if(temp_accum_I>17'd73816&&temp_accum_I<17'd84557)
+	begin
+		accum_I <= temp_accum_I;  
+	end
+	else
+	begin
+		accum_I<= accum_I;
+	end
 end
 
 reg [14:0] PI_control=start_point;
@@ -657,7 +689,20 @@ begin
    PI_control<= temp_accum_I[16:2];
 end
 
-//-----PI contorl end-------//	
+//-----PI contorl end-------//
+
+reg signed [8:0] b1, b2, b3, b4, b5, b6, b7;
+wire signed [11:0] sum_b;
+assign sum_b={{3{b7[8]}},b7}+{{3{b6[8]}},b6}+{{3{b5[8]}},b5}+{{3{b4[8]}},b4}
+           +{{3{b3[8]}},b3}+{{3{b2[8]}},b2}+{{3{b1[8]}},b1}+{{3{theta_f[8]}},theta_f};
+reg signed [8:0] smooth_theta;
+
+//always @(negedge clk600Hz) begin
+always @(negedge clk2d5kHz) begin
+	 b7<=b6;	 b6<=b5; b5<=b4;
+	 b4<=b3; b3<=b2; b2<=b1; b1<=theta_f;
+	 smooth_theta<=sum_b[11:3];  //2.5kHz/8=312.5 Hz
+end	
 
 //-----------------Edge detection for a cycle-----------------//
 //  Generate pulses to indicate the beginning of each cycle   //
@@ -672,8 +717,6 @@ always @(negedge clk10MHz_inv) begin
 	cycle_d2<=cycle_d;
 	cycle_d<=cycle;
 end
-
-
 //-------------------------LCD Display----------------------------------//
 reg RW;
 always @(posedge clk50MHz) RW<=1'b0;
@@ -682,7 +725,7 @@ wire [7:0] D;
 wire RST=1'b1;
 wire ON;
 wire [4:0] status;
-assign status={locked,4'b0};
+assign status={locked,1'b0,low_impedance,high_impedance,no_locking};
 LCD_display U9(.status(status),.freq(freq_display),.theta(theta_display),
             .power(power_display),.CLK(clk20MHz),.slowCLK(clk0d6Hz),.RESET(RST),
 				.LCM_RW(RWW),.LCM_EN(E),.LCM_RS(RS),.LCM_DATA(D),.LCD_ON(ON));
@@ -692,33 +735,41 @@ reg [10:0] power_display;
 reg [15:0] freq_display;
 always @(posedge clk4Hz) begin
           freq_display<=shutdown? 16'b1110101001100000:freq_smooth[15:0];
+			 //theta_display<=shutdown? 9'b0:delta_d;	//show delta
 			 theta_display<=shutdown? 9'b0:smooth_theta;
-			 power_display<=shutdown? 11'b0:{1'b0,smooth_current[10:1]};
+			 //power_display<=shutdown? {1'b0,setpoint}:smooth_power;
+			 power_display<=shutdown? 9'b0:smooth_power;
 end
-	
-//---------------------test point-----------------------------------------//	
+reg [10:0] a1, a2, a3, a4, a5, a6, a7;
+wire [13:0] sum_a;
+assign sum_a={{3{a7[10]}},a7}+{{3{a6[10]}},a6}+{{3{a5[10]}},a5}+{{3{a4[10]}},a4}
+           +{{3{a3[10]}},a3}+{{3{a2[10]}},a2}+{{3{a1[10]}},a1}+{{3'b0},Io_sum[11:1]};
+reg [10:0] smooth_power;
+
+always @(negedge done_Io_count) begin
+	 a7<=a6;	 a6<=a5; a5<=a4;
+	 a4<=a3; a3<=a2; a2<=a1; a1<=Io_sum[11:1];
+	 //smooth_power<=sum_a[13:3];
+	 smooth_power<=sum_a[10:0];	//modify
+end
+		 
+		 
+
+
+//wire [9:0] test_bits;
+//assign test_bits=10'b0110000000;
+//wire [3:0] h, t, o;
+//BCD U20(.hundreds(h),.tens(t),.ones(o),.in(test_bits));
+//reg [6:0] LED;
+//reg change=1'b0;
+//always @(posedge clk0d3Hz) begin
+//     change<=~change;
+//     LED<=change?{h,t[3:2],1'b0}:{t[1:0],o,1'b0};
+//end
+	  //standby?power[23:17]:power[16:10];//{3'b0,power_level};//theta_f[7:1];//{theta_f[8],1'b0,u[4:0]};
 wire test_p,test_n;
 assign test_p=Vs;//locked_temp;//standby? Gate_Ap:Gate_Bp;//Iq;//u[8];//Vq;//standby? Gate_Ap1:Gate_Bp1;
 assign test_n=Is;//standby? Gate_An:Gate_Bn;//Vq;//delayed_Iq;//u[7];//Iq;//standby? Gate_An1:Gate_Bn1;
-
-//----------------------------LCD-----------------------------------------//
-
-output LCD_csn,LCD_clk,LCD_INT,LCD_PD;
-inout LCD_out0,LCD_out1,LCD_out2,LCD_out3;
-
-LCD LCD1(.clk50M(clk50MHz),.clk20MHz(clk20MHz),
-			.out0(LCD_out0),.out1(LCD_out1),.out2(LCD_out2),.out3(LCD_out3),
-			.cs_n(LCD_csn),.out_clk(LCD_clk),.INT(LCD_INT),.PD(LCD_PD),
-			.sweep(LCD_sweep),.LOCK(LCD_LOCK),.run(LCD_run),.OFF(LCD_OFF),.freq_cho(LCD_freq_cho),.current_flag(current_chang),.current(smooth_current),.TX_choose(TX_choose));
-
-
-
-
-
-
-
-
-
 
 endmodule
 
