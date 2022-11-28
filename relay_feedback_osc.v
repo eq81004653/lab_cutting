@@ -221,7 +221,7 @@ reg [14:0]chang_point;						//20636=61.5kHz
 
 
 //assign n_ico=(!TX_FINISH||LCD_begin)?chang_point:(sweep==1'd1)?start_point:PI_control+{6'b0,clk300Hz_d2,8'b0};
-assign n_ico=(!TX_FINISH||LCD_begin/*||LCD_lock*/)?chang_point:(sweep==1'd1||stop_freq==1'b1)?start_point:PI_control+{9'b0,clk300Hz_d2,5'b0};
+assign n_ico=(!TX_FINISH||LCD_begin/*||LCD_lock*/)?chang_point:(sweep==1'd1||stop_freq==1'b1)?start_point:PI_control+{8'b0,clk300Hz_d2,6'b0};
 
 
 //assign n_ico=(TX_FINISH)?start_point:chang_point;
@@ -433,7 +433,7 @@ always@(negedge clk20MHz)
 begin
 	
 	
-	current_chang<=(TX_FINISH_count==10'd100&&sweep==1'b1)?1'b1:1'b0;
+	current_chang<=(TX_FINISH_count==10'd90&&sweep==1'b1)?1'b1:1'b0;
 	stop_freq<=(TX_choose==6'd24&&stop_freq_flag==1'd1)?1'b0:(TX_choose==6'd0||TX_choose==6'd1||TX_choose==6'd13)?1'b1:stop_freq;
 	
 	
@@ -599,7 +599,7 @@ begin
 		end
 		
 		
-		chang_point=(TX)?15'd20200:15'd20290;
+		chang_point=(TX)?15'd20200:15'd20280;
 		
 	end
 	
