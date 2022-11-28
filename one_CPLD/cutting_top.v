@@ -1,4 +1,4 @@
-module cutting_top(Gate_HI,Gate_LO,I,V,clk40MHz,T1,T2,Din,clk_out);
+module cutting_top(Gate_HI,Gate_LO,I,V,clk40MHz,T1,T2,Din,clk_out,setPoint,stop,Sweep);
 
 //output sd_clk;
 input [4:0] Din;
@@ -6,24 +6,24 @@ output clk_out;
 assign clk_out=clk40MHz;
 
 output Gate_HI, Gate_LO;
-output T1=Din[0];
-output T2=Din[1];
+output T1=stop;
+output T2=Sweep;
 input  I,V,clk40MHz;
 
 
 //----------- Set the initial frequency SetPoint ------------------//
 //parameter setPoint=15'd13002;
 
-reg stop;
-reg Sweep;
+output reg stop;
+output reg Sweep;
 
 
-reg [14:0]setPoint; // 14700; freq = 35 kHz,13841=33k,14050=33.5k,14260=34k,14470=34.5k,14700=35k
+output reg [14:0]setPoint; // 14700; freq = 35 kHz,13841=33k,14050=33.5k,14260=34k,14470=34.5k,14700=35k
 always @(clk40MHz)begin
-//	setPoint<=(Din[4:0]<=5'd20)?(Din[4:0]<<7)+(Din[4:0]<<6)+(Din[4:0]<<4)+(Din[4:0]<<1)+15'd12582:setPoint;
-//	setPoint<=(Din[4:0]<=5'd20)?({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460:setPoint;
-//	Sweep<=(Din[4:0]==5'd23)?1'd1:(Din[4:0]==5'd24)?1'd0:Sweep;
-//	stop<=(Din[4:0]==5'd22)?1'd0:(Din[4:0]==5'd21)?1'd1:stop;
+////	setPoint<=(Din[4:0]=5'd25)?15'd12460:(Din[4:0]<=5'd20)?(Din[4:0]<<7)+(Din[4:0]<<6)+(Din[4:0]<<4)+(Din[4:0]<<1)+15'd12582:setPoint;
+//	setPoint<=(Din[4:0]==5'd25)?15'd12460:(Din[4:0]<=5'd20)?({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460:setPoint;
+//	Sweep<=(Din[4:0]==5'd25)?1'd1:(Din[4:0]==5'd23)?1'd1:(Din[4:0]==5'd24)?1'd0:Sweep;
+//	stop<=(Din[4:0]==5'd25)?1'd0:(Din[4:0]==5'd22)?1'd0:(Din[4:0]==5'd21)?1'd1:stop;
 
 	if(Din[4:0]<=5'd20)begin
 		setPoint<=({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460;
@@ -58,7 +58,7 @@ always @(clk40MHz)begin
 	
 		else if(Din[4:0]==5'd25)begin
 			setPoint<=15'd12460;
-			stop<=1'd1;
+			stop<=1'd0;
 			Sweep<=1'd1;
 		end
 	
