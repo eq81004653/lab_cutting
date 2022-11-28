@@ -128,7 +128,7 @@ always @(negedge clk50M)begin
 	
 	
 	shift_map_current<={map_current,4'd0};
-	true_map_current[botton2_counter]<={shift_map_current[7:0],1'b0,shift_map_current[14:8]};
+	true_map_current[botton2_counter]<=(TX_choose<=4'd12)?{shift_map_current[7:0],1'b0,shift_map_current[14:8]}:true_map_current[botton2_counter];
 
 
 end
@@ -141,7 +141,7 @@ reg current_flag_delay;
 
 always @(posedge clk20MHz) begin 
 	current_flag_delay<=current_flag;
-	sweep_count<=(sweep)?5'd0:(sweep_count<=4'd12&&current_flag==1'b1&&current_flag_delay==1'b0)?sweep_count+4'd1:sweep_count; 
+	sweep_count<=(sweep)?5'd0:(sweep_count<=4'd11&&current_flag==1'b1&&current_flag_delay==1'b0)?sweep_count+4'd1:sweep_count; 
 	botton2_counter<=(sweep)?5'd0:(sweep_count>=4'd2&&botton2_counter<=5'd9&&current_flag==1'b1&&current_flag_delay==1'b0&&TX_choose>=6'd2)?TX_choose[4:0]-5'd2:botton2_counter;
 
 end
@@ -531,7 +531,7 @@ always @(negedge clk_1O5MHz) begin
 				20'd130:begin int<=280'h00000000000000000000000000000000000000000000000000000000B001AC529CE386;end  //SPI 56bit  	OPEN_R
 				20'd131:begin int<=280'h00000000000000000000000000000000000000000000000000000000B001B0559C6389;end  //SPI 56bit  	OPEN_U
 				20'd132:begin int<=280'h00000000000000000000000000000000000000000000000000000000B001B44E9CE38B;end  //SPI 56bit  	OPEN_N
-				20'd133:begin int<=280'h00000000000000000000000000000000000000000000000000000000B001B84E9C838C;end  //SPI 56bit  	OPEN_N
+				20'd133:begin int<=280'h00000000000000000000000000000000000000000000000000000000B001B84E9CE38B;end  //SPI 56bit  	OPEN_N
 			
 				20'd134:begin int<=280'h00000000000000000000000000000000000000000000000000000000B001BC4C9C1885;end  //SPI 56bit  	LOCK_L
 				20'd135:begin int<=280'h00000000000000000000000000000000000000000000000000000000B001C04F9C9887;end  //SPI 56bit  	LOCK_O
