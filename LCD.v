@@ -82,7 +82,7 @@ reg [3:0]botton_jump;
 reg botton2_right;
 reg botton_right;
 
-reg [1:0]choice;
+reg [3:0]choice=4'd0;
 
 
 
@@ -137,6 +137,13 @@ always @(posedge clk20MHz) begin
 end
 
 
+reg [1:0]RUN_choice=2'd0;
+reg [1:0]SWEEP_choice=2'd0;
+
+reg rest_RUN=1'd0;
+reg rest_SWEEP=1'd0;
+reg rest_fre=1'd0;
+
 
 always @(negedge clk_1O5MHz) begin
    
@@ -146,67 +153,81 @@ always @(negedge clk_1O5MHz) begin
 	
 	/////////////////////////////////////////RUN//////////////////////////////////
 	
-	if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd210&&readdata_true_X>=16'd84&&readdata_true_Y<=16'd871&&readdata_true_Y>=16'd768&&readdata[39:32]==8'h42)    
-		begin run<=1'd1;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd12;choice<=2'd1;end
+	if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd210&&readdata_true_X>=16'd84&&readdata_true_Y<=16'd871&&readdata_true_Y>=16'd768&&readdata[39:32]==8'h42)    
+		begin run<=1'd1;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd0;choice<=choice;RUN_choice<=1'd1;SWEEP_choice<=SWEEP_choice;rest_RUN<=(!rest_RUN)?1'd1:rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=rest_fre;end
 	/////////////////////////////////////////OFF//////////////////////////////////
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd210&&readdata_true_X>=16'd75&&readdata_true_Y<=16'd643&&readdata_true_Y>=16'd545&&readdata[39:32]==8'h42)
-		begin run<=1'd0;OFF<=1'd1;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd13;choice<=2'd1;end
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd210&&readdata_true_X>=16'd75&&readdata_true_Y<=16'd643&&readdata_true_Y>=16'd545&&readdata[39:32]==8'h42)
+		begin run<=1'd0;OFF<=1'd1;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd0;choice<=choice;RUN_choice<=1'd2;SWEEP_choice<=SWEEP_choice;rest_RUN<=(!rest_RUN)?1'd1:rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=rest_fre;end
 	/////////////////////////////////////////SWEEP//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd210&&readdata_true_X>=16'd75&&readdata_true_Y<=16'd415&&readdata_true_Y>=16'd312&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd1;LOCK<=1'd0;freq_cho<=4'd14;choice<=2'd1;end
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd210&&readdata_true_X>=16'd75&&readdata_true_Y<=16'd415&&readdata_true_Y>=16'd312&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd1;LOCK<=1'd0;freq_cho<=4'd0;choice<=choice;RUN_choice<=RUN_choice;SWEEP_choice<=1'd1;rest_RUN<=rest_RUN;rest_SWEEP<=(!rest_SWEEP)?1'd1:rest_SWEEP;rest_fre<=rest_fre;end
 	/////////////////////////////////////////LOCK//////////////////////////////////	
 	
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd210&&readdata_true_X>=16'd75&&readdata_true_Y<=16'd187&&readdata_true_Y>=16'd84&&readdata[39:32]==8'h42)
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd1;freq_cho<=4'd15;choice<=2'd1;end		
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd210&&readdata_true_X>=16'd75&&readdata_true_Y<=16'd187&&readdata_true_Y>=16'd84&&readdata[39:32]==8'h42)
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd1;freq_cho<=4'd0;choice<=choice;RUN_choice<=RUN_choice;SWEEP_choice<=1'd2;rest_RUN<=rest_RUN;rest_SWEEP<=(!rest_SWEEP)?1'd1:rest_SWEEP;rest_fre<=rest_fre;end		
 	/////////////////////////////////////////30k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd348&&readdata_true_X>=16'd311&&readdata[39:32]==8'h42)
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd1;choice<=2'd1;end	
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd348&&readdata_true_X>=16'd311&&readdata[39:32]==8'h42)
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd1;choice<=4'd1;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end	
 	/////////////////////////////////////////31k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd412&&readdata_true_X>=16'd372&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd2;choice<=2'd1;end
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd412&&readdata_true_X>=16'd372&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd2;choice<=4'd2;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end
 	/////////////////////////////////////////32k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd468&&readdata_true_X>=16'd432&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd3;choice<=2'd1;end	
-		
-	/////////////////////////////////////////33k//////////////////////////////////	
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd523&&readdata_true_X>=16'd492&&readdata[39:32]==8'h42)
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd4;choice<=2'd1;end		
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd468&&readdata_true_X>=16'd432&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd3;choice<=4'd3;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end	
+	/////////////////////////////////////////33k//////////////////////////////////
+	
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd523&&readdata_true_X>=16'd492&&readdata[39:32]==8'h42)
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd4;choice<=4'd4;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end		
 	///////////////////////////////////////////34k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd587&&readdata_true_X>=16'd553&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd5;choice<=2'd1;end
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd587&&readdata_true_X>=16'd553&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd5;choice<=4'd5;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end
 	///////////////////////////////////////////35k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd652&&readdata_true_X>=16'd616&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd6;choice<=2'd1;end	
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd652&&readdata_true_X>=16'd616&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd6;choice<=4'd6;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end	
 	///////////////////////////////////////////36k//////////////////////////////////	
 	
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd707&&readdata_true_X>=16'd670&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd7;choice<=2'd1;end
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd707&&readdata_true_X>=16'd670&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd7;choice<=4'd7;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end
 	///////////////////////////////////////////37k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd768&&readdata_true_X>=16'd736&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd8;choice<=2'd1;end	
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd768&&readdata_true_X>=16'd736&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd8;choice<=4'd8;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end	
 	///////////////////////////////////////////38k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd816&&readdata_true_X>=16'd791&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd9;choice<=2'd1;end		
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd816&&readdata_true_X>=16'd791&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd9;choice<=4'd9;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end		
 	///////////////////////////////////////////39k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd880&&readdata_true_X>=16'd848&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd10;choice<=2'd1;end
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd880&&readdata_true_X>=16'd848&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd10;choice<=4'd10;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end
 	//////////////////////////////////////////40k//////////////////////////////////	
 
-	else if((count>=20'd51&&count<=20'd56)&&readdata_true_X<=16'd940&&readdata_true_X>=16'd909&&readdata[39:32]==8'h42)	
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd11;choice<=2'd1;end
+	else if((count>=20'd54&&count<=20'd59)&&readdata_true_X<=16'd940&&readdata_true_X>=16'd909&&readdata[39:32]==8'h42)	
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd11;choice<=4'd11;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end
 
 	else
-		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=freq_cho;choice<=2'd0;end  
+		begin run<=1'd0;OFF<=1'd0;sweep<=1'd0;LOCK<=1'd0;freq_cho<=4'd0;choice<=choice;RUN_choice<=RUN_choice;SWEEP_choice<=SWEEP_choice;rest_RUN<=rest_RUN;rest_SWEEP<=rest_SWEEP;rest_fre<=(!rest_fre)?1'd1:rest_fre;end  
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 	
@@ -227,7 +248,7 @@ always @(negedge clk_1O5MHz) begin
 	
 	else if(state==4'd1)begin
 	
-		if(count>20'd56)begin
+		if(count>20'd59)begin
 			state<=4'd0;
 			cs_n<=1;
 			count<=0;
@@ -266,53 +287,81 @@ always @(negedge clk_1O5MHz) begin
 				
 			
 				
-				20'd23:begin int<=(freq_cho==4'd1)?{288'h0,152'hB000080000FF04335BD99C305B199E6B5B599F}:{288'h0,152'hB00008FFFFFF04335BD99C305B199E6B5B599F};end		//SPI 152bit	30k	
-				20'd24:begin int<=(freq_cho==4'd2)?{288'h0,152'hB000180000FF04335B19A3315B59A46B5B99A5}:{288'h0,152'hB00018FFFFFF04335B19A3315B59A46B5B99A5};end		//SPI 152bit	31k
-				20'd25:begin int<=(freq_cho==4'd3)?{288'h0,152'hB000280000FF04335B59A9325B99AA6B5BD9AB}:{288'h0,152'hB00028FFFFFF04335B59A9325B99AA6B5BD9AB};end		//SPI 152bit	32k
-				20'd26:begin int<=(freq_cho==4'd4)?{288'h0,152'hB000380000FF04335B99AF335BD9B06B5B19B2}:{288'h0,152'hB00038FFFFFF04335B99AF335BD9B06B5B19B2};end		//SPI 152bit	33k
-				20'd27:begin int<=(freq_cho==4'd5)?{288'h0,152'hB000480000FF04335BD9B5345B19B76B5B59B8}:{288'h0,152'hB00048FFFFFF04335BD9B5345B19B76B5B59B8};end		//SPI 152bit	34k
-				20'd28:begin int<=(freq_cho==4'd6)?{288'h0,152'hB000580000FF04335B19BC355B59BD6B5B99BE}:{288'h0,152'hB00058FFFFFF04335B19BC355B59BD6B5B99BE};end		//SPI 152bit	35k
+				20'd23:begin int<=(choice==4'd1&&rest_fre==1'd1)?{288'h0,152'hB000080000FF04335BD99C305B199E6B5B599F}:{288'h0,152'hB00008FFFFFF04335BD99C305B199E6B5B599F};end		//SPI 152bit	30k	
+				20'd24:begin int<=(choice==4'd2&&rest_fre==1'd1)?{288'h0,152'hB000180000FF04335B19A3315B59A46B5B99A5}:{288'h0,152'hB00018FFFFFF04335B19A3315B59A46B5B99A5};end		//SPI 152bit	31k
+				20'd25:begin int<=(choice==4'd3&&rest_fre==1'd1)?{288'h0,152'hB000280000FF04335B59A9325B99AA6B5BD9AB}:{288'h0,152'hB00028FFFFFF04335B59A9325B99AA6B5BD9AB};end		//SPI 152bit	32k
+				20'd26:begin int<=(choice==4'd4&&rest_fre==1'd1)?{288'h0,152'hB000380000FF04335B99AF335BD9B06B5B19B2}:{288'h0,152'hB00038FFFFFF04335B99AF335BD9B06B5B19B2};end		//SPI 152bit	33k
+				20'd27:begin int<=(choice==4'd5&&rest_fre==1'd1)?{288'h0,152'hB000480000FF04335BD9B5345B19B76B5B59B8}:{288'h0,152'hB00048FFFFFF04335BD9B5345B19B76B5B59B8};end		//SPI 152bit	34k
+				20'd28:begin int<=(choice==4'd6&&rest_fre==1'd1)?{288'h0,152'hB000580000FF04335B19BC355B59BD6B5B99BE}:{288'h0,152'hB00058FFFFFF04335B19BC355B59BD6B5B99BE};end		//SPI 152bit	35k
 				20'd29:begin int<={320'h0,120'hB00068000000210100001F2021002B};end  //SPI 120bit
-				20'd30:begin int<=(freq_cho==4'd7)?{288'h0,152'hB000740000FF04335B1980365B59816B5B9982}:{288'h0,152'hB00074FFFFFF04335B1980365B59816B5B9982};end		//SPI 152bit	36k
-				20'd31:begin int<=(freq_cho==4'd8)?{288'h0,152'hB000840000FF04335B5986375B99876B5BD988}:{288'h0,152'hB00084FFFFFF04335B5986375B99876B5BD988};end		//SPI 152bit	37k
-				20'd32:begin int<=(freq_cho==4'd9)?{288'h0,152'hB000940000FF04335B998C385BD98D6B5B198F}:{288'h0,152'hB00094FFFFFF04335B998C385BD98D6B5B198F};end		//SPI 152bit	38k
-				20'd33:begin int<=(freq_cho==4'd10)?{288'h0,152'hB000A40000FF04335BD992395B19946B5B5995}:{288'h0,152'hB000A4FFFFFF04335BD992395B19946B5B5995};end		//SPI 152bit	39k
-				20'd34:begin int<=(freq_cho==4'd11)?{288'h0,152'hB000B40000FF04345B1999305B599A6B5B999B}:{288'h0,152'hB000B4FFFFFF04345B1999305B599A6B5B999B};end		//SPI 152bit	40k
+				20'd30:begin int<=(choice==4'd7&&rest_fre==1'd1)?{288'h0,152'hB000740000FF04335B1980365B59816B5B9982}:{288'h0,152'hB00074FFFFFF04335B1980365B59816B5B9982};end		//SPI 152bit	36k
+				20'd31:begin int<=(choice==4'd8&&rest_fre==1'd1)?{288'h0,152'hB000840000FF04335B5986375B99876B5BD988}:{288'h0,152'hB00084FFFFFF04335B5986375B99876B5BD988};end		//SPI 152bit	37k
+				20'd32:begin int<=(choice==4'd9&&rest_fre==1'd1)?{288'h0,152'hB000940000FF04335B998C385BD98D6B5B198F}:{288'h0,152'hB00094FFFFFF04335B998C385BD98D6B5B198F};end		//SPI 152bit	38k
+				20'd33:begin int<=(choice==4'd10&&rest_fre==1'd1)?{288'h0,152'hB000A40000FF04335BD992395B19946B5B5995}:{288'h0,152'hB000A4FFFFFF04335BD992395B19946B5B5995};end		//SPI 152bit	39k
+				20'd34:begin int<=(choice==4'd11&&rest_fre==1'd1)?{288'h0,152'hB000B40000FF04345B1999305B599A6B5B999B}:{288'h0,152'hB000B4FFFFFF04345B1999305B599A6B5B999B};end		//SPI 152bit	40k
 				20'd35:begin int<={352'h0,88'hB000C4000000210000002B};end  //SPI 88bit	
 			
 
-				20'd36:begin int<={160'h0,280'hB000CC0300001FFFFFFF041E00000E00001999001970570000199900E0019900000021};end   //SPI 280bit		
-				20'd37:begin int<={160'h0,280'hB000EC0900001F646464045000000E0000C28300004790646464045000000E0009F040};end   //SPI 280bit		
-				20'd38:begin int<={160'h0,280'hB0010C000E1044646464045000000E0000D08300005590646464045000000E0000D783};end   //SPI 280bit		
-				20'd39:begin int<={160'h0,280'hB0012C00005C90000000210100001FFFFFFF04418B9696308B56952E8BB694348B7693};end   //SPI 280bit		
-				20'd40:begin int<={160'h0,280'hB0014C410B9496350B54952E0BB494340B7493418B9196308B51952E8BB194358B7193};end   //SPI 280bit		
-				20'd41:begin int<={160'h0,280'hB0016C410B8F96350B4F952E0BAF94350B6F93418B8C96308B4C952E8BAC94368B6C93};end   //SPI 280bit		
-				20'd42:begin int<={160'h0,280'hB0018C410B8A96350B4A952E0BAA94360B6A93418B8796308B47952E8BA794378B6793};end   //SPI 280bit		
-				20'd43:begin int<={160'h0,280'hB001AC410B8596350B45952E0BA594370B6593418B8296308B42952E8BA294388B6293};end   //SPI 280bit		
-				20'd44:begin int<={160'h0,280'hB001CC4F9CEA86469C6A89469CEA8B529CE386559C63894E9CE38B4C9C18854F9C9887};end   //SPI 280bit		
-				20'd45:begin int<={160'h0,280'hB001EC439C188A4B9C988C539CB185579C9187459C118A459CF18B509CD18D00000021};end   //SPI 280bit
-				20'd46:begin int<={320'h0,120'hB0020C0400001F00FFFF043000000E};end  //SPI 120bit
+				20'd36:begin int<={128'h0,312'hB000CC0300001FFFFFFF041E00000E00001999001970570000199900E00199000000210900001F};end   //SPI 312bit
+					
+				20'd37:begin int<=(RUN_choice==1'd1&&rest_RUN==1'd1)?{288'h0,152'hB000F0646400045000000E0000C28300004790}:{288'h0,152'hB000F0646464045000000E0000C28300004790};end   	//SPI 152bit
+				20'd38:begin int<=(RUN_choice==1'd2&&rest_RUN==1'd1)?{288'h0,152'hB00100646400045000000E0009F040000E1044}:{288'h0,152'hB00100646464045000000E0009F040000E1044};end   	//SPI 152bit
+				20'd39:begin int<=(SWEEP_choice==1'd1&&rest_SWEEP==1'd1)?{288'h0,152'hB00110646400045000000E0000D08300005590}:{288'h0,152'hB00110646464045000000E0000D08300005590};end   	//SPI 152bit
+				20'd40:begin int<=(SWEEP_choice==1'd2&&rest_SWEEP==1'd1)?{288'h0,152'hB00120646400045000000E0000D78300005C90}:{288'h0,152'hB00120646464045000000E0000D78300005C90};end   	//SPI 152bit
+
 				
-				20'd47:begin int<=(botton2_counter==5'd0)?{320'h0,24'hB00218,true_map_current[0],16'h8047,64'h0000002100000000}:  //SPI 120bit
-										 (botton2_counter==5'd1)?{288'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,64'h0000002100000000}: //SPI 152bit
-										 (botton2_counter==5'd2)?{256'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,64'h0000002100000000}: //SPI 184bit
-										 (botton2_counter==5'd3)?{224'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,64'h0000002100000000}: //SPI 216bit
-										 (botton2_counter==5'd4)?{192'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,64'h0000002100000000}:  //SPI 248bit
-										 (botton2_counter==5'd5)?{160'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,64'h0000002100000000}:  //SPI 280bit
-										 (botton2_counter==5'd6)?{128'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,64'h0000002100000000}:  //SPI 312bit
-										 (botton2_counter==5'd7)?{96'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,64'h0000002100000000}:  //SPI 344bit
-										 (botton2_counter==5'd8)?{64'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,64'h0000002100000000}:  //SPI 376bit
-										 (botton2_counter==5'd9)?{32'h0,24'hB00218,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,true_map_current[9],16'h9055,64'h0000002100000000}:  //SPI 408bit
-										 (botton2_counter==5'd10)?{24'hB001EC,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,true_map_current[9],16'h9055,true_map_current[10],16'h8056,64'h0000002100000000}:440'd0;end  	 //SPI 440bit
-				20'd48:begin int<={408'h0,32'hB0205402};end   																		 //SPI 32bit  REG_DLSWAP 
-				20'd49:begin int<={408'h0,32'hB0207002};end   																		 //SPI 32bit  REG_PCLK
-				20'd50:begin int<=440'h0;end   																							 //commemd        AVTIVE
-				20'd51:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
-				20'd52:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
-				20'd53:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
+				20'd41:begin int<={192'h0,248'hB00130000000210100001FFFFFFF04418B9696308B56952E8BB694348B7693};end				 //SPI 248bit		
+				20'd42:begin int<={160'h0,280'hB0014C410B9496350B54952E0BB494340B7493418B9196308B51952E8BB194358B7193};end   //SPI 280bit		
+				20'd43:begin int<={160'h0,280'hB0016C410B8F96350B4F952E0BAF94350B6F93418B8C96308B4C952E8BAC94368B6C93};end   //SPI 280bit		
+				20'd44:begin int<={160'h0,280'hB0018C410B8A96350B4A952E0BAA94360B6A93418B8796308B47952E8BA794378B6793};end   //SPI 280bit		
+				20'd45:begin int<={160'h0,280'hB001AC410B8596350B45952E0BA594370B6593418B8296308B42952E8BA294388B6293};end   //SPI 280bit		
+				20'd46:begin int<={160'h0,280'hB001CC4F9CEA86469C6A89469CEA8B529CE386559C63894E9CE38B4C9C18854F9C9887};end   //SPI 280bit		
+				20'd47:begin int<={160'h0,280'hB001EC439C188A4B9C988C539CB185579C9187459C118A459CF18B509CD18D00000021};end   //SPI 280bit
+				
+				
+				20'd48:begin int<=(choice==4'd0)?{224'h0,248'hB0020C0000FF041000000E0300001F000000400100004000000021}:					//SPI 216bit
+										(choice==4'd1)?{224'h0,248'hB0020C0000FF041000000E0300001FE00180470019804700000021}:					//SPI 216bit
+										(choice==4'd2)?{224'h0,248'hB0020C0000FF041000000E0300001FE00110490019104900000021}:					//SPI 216bit
+										(choice==4'd3)?{224'h0,248'hB0020C0000FF041000000E0300001FE001A04A0019A04A00000021}:					//SPI 216bit
+										(choice==4'd4)?{224'h0,248'hB0020C0000FF041000000E0300001FE001304C0019304C00000021}:					//SPI 216bit
+										(choice==4'd5)?{224'h0,248'hB0020C0000FF041000000E0300001FE001C04D0019C04D00000021}:					//SPI 216bit
+										(choice==4'd6)?{224'h0,248'hB0020C0000FF041000000E0300001FE001504F0019504F00000021}:					//SPI 216bit
+										(choice==4'd7)?{224'h0,248'hB0020C0000FF041000000E0300001FE001E0500019E05000000021}:					//SPI 216bit
+										(choice==4'd8)?{224'h0,248'hB0020C0000FF041000000E0300001FE00170520019705200000021}:					//SPI 216bit
+										(choice==4'd9)?{224'h0,248'hB0020C0000FF041000000E0300001FE00100540019005400000021}:					//SPI 216bit
+										(choice==4'd10)?{224'h0,248'hB0020C0000FF041000000E0300001FE00190550019905500000021}:					//SPI 216bit
+										(choice==4'd11)?{224'h0,248'hB0020C0000FF041000000E0300001FE00120570019205700000021}:440'd0;end 	//SPI 216bit
+				
+				20'd49:begin int<={320'h0,120'hB002240400001F00FFFF043000000E};end  //SPI 120bit
+				
+				20'd50:begin int<=(botton2_counter==5'd0)?{320'h0,24'hB00230,true_map_current[0],16'h8047,64'h0000002100000000}:  //SPI 120bit
+										 (botton2_counter==5'd1)?{288'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,64'h0000002100000000}: //SPI 152bit
+										 (botton2_counter==5'd2)?{256'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,64'h0000002100000000}: //SPI 184bit
+										 (botton2_counter==5'd3)?{224'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,64'h0000002100000000}: //SPI 216bit
+										 (botton2_counter==5'd4)?{192'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,64'h0000002100000000}:  //SPI 248bit
+										 (botton2_counter==5'd5)?{160'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,64'h0000002100000000}:  //SPI 280bit
+										 (botton2_counter==5'd6)?{128'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,64'h0000002100000000}:  //SPI 312bit
+										 (botton2_counter==5'd7)?{96'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,64'h0000002100000000}:  //SPI 344bit
+										 (botton2_counter==5'd8)?{64'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,64'h0000002100000000}:  //SPI 376bit
+										 (botton2_counter==5'd9)?{32'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,true_map_current[9],16'h9055,64'h0000002100000000}:  //SPI 408bit
+										 (botton2_counter==5'd10)?{24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,true_map_current[9],16'h9055,true_map_current[10],16'h2057,64'h0000002100000000}:440'd0;end  	 //SPI 440bit					 
+				
+				
+
+
+				
+				20'd51:begin int<={408'h0,32'hB0205402};end   																		 //SPI 32bit  REG_DLSWAP 
+				20'd52:begin int<={408'h0,32'hB0207002};end   																		 //SPI 32bit  REG_PCLK
+				20'd53:begin int<=440'h0;end   																							 //commemd        AVTIVE
 				20'd54:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
 				20'd55:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
 				20'd56:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
+				20'd57:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
+				20'd58:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
+				20'd59:begin int<={376'h0,64'h3021240000000000};end   																 //SPI 64bit
+				
+		
+					
 		  
 		  default:begin int<=440'd0;end
 		  endcase
@@ -333,7 +382,7 @@ always @(negedge clk_1O5MHz) begin
 			end
 			/////////////////////////////////////////////////////SPI commemd 24bit
 			else begin
-				if(count==20'd0||count==20'd1||count==20'd2||count==20'd50)begin
+				if(count==20'd0||count==20'd1||count==20'd2||count==20'd53)begin
 					cs_ready<=0;
 					data<=int;
 					if(position==10'd439)begin					
@@ -359,7 +408,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 32bit
-				else if(count==20'd20||count==20'd21||count==20'd13||count==20'd14||count==20'd48||count==20'd49)begin
+				else if(count==20'd13||count==20'd14||count==20'd20||count==20'd21||count==20'd51||count==20'd52)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -414,7 +463,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				///////////////////////////////////////////////////SPI 64bit
-				else if(count==20'd3||(count>=20'd51&&count<=20'd56))begin
+				else if(count==20'd3||(count>=20'd54&&count<=20'd59))begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -492,7 +541,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 280bit
-				else if((count==20'd47&&botton2_counter==5'd5)||(count>=20'd36&&count<=20'd45))begin
+				else if((count==20'd50&&botton2_counter==5'd5)||(count>=20'd42&&count<=20'd47))begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -519,7 +568,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 120bit
-				else if((count==20'd47&&botton2_counter==5'd0)||count==20'd29||count==20'd46)begin
+				else if((count==20'd50&&botton2_counter==5'd0)||count==20'd29||count==20'd49)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -546,7 +595,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 152bit
-				else if((count==20'd47&&botton2_counter==5'd1)||(count>=20'd23&&count<=20'd28)||(count>=20'd30&&count<=20'd34))begin
+				else if((count==20'd50&&botton2_counter==5'd1)||(count>=20'd23&&count<=20'd28)||(count>=20'd30&&count<=20'd34)||(count>=20'd37&&count<=20'd40))begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -573,7 +622,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 184bit
-				else if(count==20'd47&&botton2_counter==5'd2)begin
+				else if(count==20'd50&&botton2_counter==5'd2)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -600,7 +649,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				////////////////////////////////////////////////////SPI 216bit
-				else if(count==20'd47&&botton2_counter==5'd3)begin
+				else if((count==20'd50&&botton2_counter==5'd3)||count==20'd48)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -627,7 +676,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 248bit
-				else if(count==20'd47&&botton2_counter==5'd4)begin
+				else if((count==20'd50&&botton2_counter==5'd4)||count==20'd41)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -654,7 +703,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 312bit
-				else if(count==20'd47&&botton2_counter==5'd6)begin
+				else if((count==20'd50&&botton2_counter==5'd6)||count==20'd36)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -681,7 +730,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 344bit
-				else if(count==20'd47&&botton2_counter==5'd7)begin
+				else if(count==20'd50&&botton2_counter==5'd7)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -708,7 +757,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 376bit
-				else if(count==20'd47&&botton2_counter==5'd8)begin
+				else if(count==20'd50&&botton2_counter==5'd8)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
@@ -735,7 +784,7 @@ always @(negedge clk_1O5MHz) begin
 					end
 				end
 				/////////////////////////////////////////////////////SPI 408bit
-				else if(count==20'd47&&botton2_counter==5'd9)begin
+				else if(count==20'd50&&botton2_counter==5'd9)begin
 					data<=int;
 					cs_ready<=0;
 					if(position==10'd439)begin					
