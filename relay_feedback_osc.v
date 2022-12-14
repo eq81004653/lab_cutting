@@ -207,10 +207,21 @@ reg [14:0]chang_point;						//20636=61.5kHz
 													//20300=60.5kHz 
 													//20468=61kHz
 													
-
-//assign n_ico=PI_control+{11'b0,clk300Hz_d2,3'b0};	//with PI control
+reg [14:0]freq_sweep_chang=15'd17000;													
+													
+always@(posedge count[19])
+begin
+	freq_sweep_chang<=(freq_sweep_chang>=15'd24000)?freq_sweep_chang:freq_sweep_chang+15'd10;										
+end												
+													
+													
+//assign n_ico=freq_sweep_chang;													
+//assign n_ico=PI_control+{7'b0,clk300Hz_d2,7'b0};	//with PI control
 //assign n_ico=start_point+{6'b0,clk300Hz_d2,8'b0};	//no PI control, test delta
 //assign n_ico=start_point;
+
+//assign n_ico=(botton_count)?15'd16106:PI_control+{8'b0,clk300Hz_d2,6'b0};
+
 
 //assign n_ico=chang_point;
 //assign n_ico=(TX_FINISH)?start_point:chang_point;
@@ -507,19 +518,20 @@ begin
 end
 
 
-
-
+reg botton_count;
+reg SW2_delay;
 
 
 //always@(posedge clk50MHz) 
 always@(posedge count[18]) 
 begin
 
-//	if(SW2==0)
-//	begin
-//		TX_FINISH<=1'd0;
-//	end
+
+	SW2_delay<=SW2;
+	if(SW2_delay==1'd1&&SW2==1'd0)begin botton_count<=botton_count+1'd1;end
 	
+
+
 	delay_chang<=chang;
 	TX_FINISH_count<=(chang^delay_chang==1'd0&&sweep==1'd1)?TX_FINISH_count+10'd1:10'd0;
 	TX_FINISH<=(TX_FINISH_count<=10'd27&&sweep==1'd1)?0:1;
@@ -599,7 +611,7 @@ begin
 		end
 		
 		
-		chang_point=(TX)?15'd20200:15'd20280;
+		chang_point=(TX)?15'd20200:15'd20300;
 		
 	end
 	
