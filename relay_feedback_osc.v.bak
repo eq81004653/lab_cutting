@@ -1,0 +1,59 @@
+module relay_feedback_osc(pwm_drive, shutdown, y, yIs,Is, SW2, clk50MHz);
+input Is, SW2, clk50MHz;       
+output [1:0] pwm_drive;
+output shutdown, y, yIs;
+wire shutdown=1'b0;
+wire yIs;
+assign yIs=~Is;//n[0]; //~Is;
+
+wire clk10MHz;
+divide_by_5_60duty U1(.Out(clk10MHz),.In(clk50MHz));
+
+wire clk1d25MHz,clk1kHz, clk0d5Hz;
+assign clk1d25MHz=count[2];
+assign clk1kHz=count[12];
+assign clk0d5Hz=count[25];
+reg [25:0] count;
+wire clk5MHz;
+assign clk5MHz=count[0];
+always @(posedge clk10MHz) count<=count+1;
+reg debounce_switch=0;
+reg standby=1;  
+always @(posedge clk1kHz) 	debounce_switch<=~SW2;
+always @(posedge debounce_switch) standby <=~standby; 
+
+reg [31:0] Is_delay;
+always @(posedge clk1d25MHz) Is_delay<={Is_delay[30:0],Is};
+
+reg [4:0] index=5'b0;//6'b001010;//10 // 6'b011001;  //25
+always @(posedge standby) index<=index+5'b00001; //5'b00101;
+
+wire y;
+assign y=yy;//&n[0];
+reg r;
+always @(negedge clk50MHz) begin
+      r<= ~Is;//Is_delay[index];
+		n<=index;
+end
+//wire [3:0] n=4'b1011;  // 11, corresponding to f0=36.8 kHz
+wire [4:0] n_plus1;
+assign n_plus1=(&n)? n:(n+1);
+reg [4:0] n=5'b0;
+//always @(posedge clk0d5Hz) n<=5'b00111;//7 //standby? n:n_plus1; //5'b01000;//standby? n:n_plus1; //5'b01001;//10110;
+wire yy;
+//RFO U2(.y(yy), .n(n), .r(r), .injection(~standby), .clk10MHz(clk10MHz));
+wire injection=1'b1;
+RFO U2(.y(yy), .n(n), .r(r), .injection(injection), .clk10MHz(clk10MHz));
+//wire [4:0] n_set=5'b11001;
+//----------- One-Pulse PWM with tau=0.4, 2*pi means 1 period------//
+reg [8:0] y_delay=9'b0;
+always @(posedge clk5MHz) y_delay<={y_delay[7:0],yy};
+
+wire pwm1,pwm2;
+assign pwm1 = y_delay[8]&yy;
+assign pwm2 = ~(y_delay[8]|yy);
+reg [1:0] pwm_drive;
+always @(negedge clk50MHz) pwm_drive<={pwm1,pwm2};//standby?2'b0:{pwm1,pwm2};
+
+ 
+endmodule 
