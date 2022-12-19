@@ -1,4 +1,4 @@
-module cutting_top(Gate_HI,Gate_LO,I,V,clk40MHz,T1,T2,Din,clk_out,setPoint,stop,Sweep);
+module cutting_top(Gate_HI,Gate_LO,I,V,clk40MHz,T1,T2,Din,clk_out);
 
 //output sd_clk;
 input [4:0] Din;
@@ -6,24 +6,24 @@ output clk_out;
 assign clk_out=clk40MHz;
 
 output Gate_HI, Gate_LO;
-output T1=stop;
-output T2=Sweep;
+output T1=Din[0];
+output T2=Din[1];
 input  I,V,clk40MHz;
 
 
 //----------- Set the initial frequency SetPoint ------------------//
 //parameter setPoint=15'd13002;
 
-output reg stop;
-output reg Sweep;
+reg stop;
+reg Sweep;
 
 
-output reg [14:0]setPoint; // 14700; freq = 35 kHz,13841=33k,14050=33.5k,14260=34k,14470=34.5k,14700=35k
-always @(clk40MHz)begin
-////	setPoint<=(Din[4:0]=5'd25)?15'd12460:(Din[4:0]<=5'd20)?(Din[4:0]<<7)+(Din[4:0]<<6)+(Din[4:0]<<4)+(Din[4:0]<<1)+15'd12582:setPoint;
-//	setPoint<=(Din[4:0]==5'd25)?15'd12460:(Din[4:0]<=5'd20)?({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460:setPoint;
-//	Sweep<=(Din[4:0]==5'd25)?1'd1:(Din[4:0]==5'd23)?1'd1:(Din[4:0]==5'd24)?1'd0:Sweep;
-//	stop<=(Din[4:0]==5'd25)?1'd0:(Din[4:0]==5'd22)?1'd0:(Din[4:0]==5'd21)?1'd1:stop;
+reg [14:0]setPoint; // 14700; freq = 35 kHz,13841=33k,14050=33.5k,14260=34k,14470=34.5k,14700=35k
+always @(posedge clk40MHz)begin
+//	setPoint<=(Din[4:0]<=5'd20)?(Din[4:0]<<7)+(Din[4:0]<<6)+(Din[4:0]<<4)+(Din[4:0]<<1)+15'd12582:setPoint;
+//	setPoint<=(Din[4:0]<=5'd20)?({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460:setPoint;
+//	Sweep<=(Din[4:0]==5'd23)?1'd1:(Din[4:0]==5'd24)?1'd0:Sweep;
+//	stop<=(Din[4:0]==5'd22)?1'd0:(Din[4:0]==5'd21)?1'd1:stop;
 
 	if(Din[4:0]<=5'd20)begin
 		setPoint<=({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460;
@@ -37,38 +37,38 @@ always @(clk40MHz)begin
 			stop<=1'd0;
 			Sweep<=Sweep;
 		end
-		
+
 		else if(Din[4:0]==5'd22)begin
 			setPoint<=setPoint;
 			stop<=1'd1;
 			Sweep<=Sweep;
 		end
-		
+
 		else if(Din[4:0]==5'd23)begin
 			setPoint<=setPoint;
 			stop<=stop;
 			Sweep<=1'd1;
 		end
-		
+
 		else if(Din[4:0]==5'd24)begin
 			setPoint<=setPoint;
 			stop<=stop;
 			Sweep<=1'd0;
 		end
-	
+
 		else if(Din[4:0]==5'd25)begin
 			setPoint<=15'd12460;
 			stop<=1'd0;
 			Sweep<=1'd1;
 		end
-	
+
 		else begin
 			setPoint<=setPoint;
 			stop<=stop;
 			Sweep<=Sweep;
 		end
 	end
-	
+
 end
 
 
@@ -155,18 +155,18 @@ end
   //assign theta=abs_theta+{3'b000,Din};	//Din contorl lock deg
   assign theta=abs_theta;	//lock at zero
  // LPF2 U3(.out(theta),.in(abs_theta),.clk(cycle_d2));
- 
-  
+
+
 
 //--------------------- Minimum Phase Seeking ------------------------//
-  
+
   wire cycle500Hz;
   assign cycle500Hz=count[5];
   reg [5:0] count;
   always @(posedge cycle_d3) begin
       count<= count+6'b000001;
   end
-  
+
   reg cycle500Hz_d1, cycle500Hz_d2;
   always @(posedge clk5MHz) begin
      cycle500Hz_d2 <= cycle500Hz_d1;
@@ -174,12 +174,12 @@ end
   end
   wire pulse500Hz;  // pulse500Hz @ negedge cycle500Hz_d1
   assign pulse500Hz=(~cycle500Hz_d1)&cycle500Hz_d2; 
-  
+
   reg [7:0] theta_past;
   always @(posedge cycle500Hz) begin     					
 	    theta_past <= theta; 
   end
-  
+
   // theta_past is the phase at lower frequency
   // theta      is the phase at higher frequency
 
@@ -187,34 +187,34 @@ end
   always @(negedge cycle500Hz) begin
         delta<= {1'b0,theta_past}-{1'b0,theta};
   end
-   
-  
+
+
   wire signed [16:0] temp_accum_I;
   assign temp_accum_I = accum_I + {{7{delta[8]}},delta,1'b0};
-    
+
 //  reg signed [16:0] accum_I={setPoint,2'b0};
-  
+
 	reg signed [16:0] accum_I;
 
 //  reg signed [16:0] temp_accum_I=17'd58800;
-  
-  
+
+
 //  wire chang_a;
 //  assign chang_a=!Sweep;
-  
+
 //  always @(*) begin 
 //		accum_I<=(chang)?{setPoint,2'b0}:accum_I;
 //		PI_control<=(chang)?setPoint:PI_control;
 //  end
-  
+
 //  reg chang_a;
   always @(posedge pulse500Hz) begin
-  
+
 //		chang_a<=(Sweep)?1'b0:1'b1;
      // PhaseNear90 = 1 when abs_theta > 64
 //	  temp_accum_I <= {setPoint,2'b0} + {{7{delta[8]}},delta,1'b0};
      // accumulator for integration	  
-	  
+
 //	  
 	  if(Sweep==1'b1)
 	    begin accum_I<={setPoint,2'b0};/*chang_a<=1'b0;chang_a<=1'b0;*/end
@@ -223,14 +223,14 @@ end
 
 //    accum_I<=temp_accum_I;
   end
-  
-  
+
+
   reg [14:0] PI_control=15'd13631;
   always @(negedge pulse500Hz) begin
       // Round off two bits  
-	  
+
 		PI_control<=temp_accum_I[16:2];
-	  
+
 //	  PI_control<=(chang_b)?setPoint:temp_accum_I[16:2];//temp_accum_I[1]? (temp_accum_I[16:2]+{14'b0,1'b1}):temp_accum_I[16:2];
   end
 
@@ -239,5 +239,5 @@ end
   //assign increment = PI_control+{9'b0,cycle500Hz_d2,cycle500Hz_d2&PhaseNear90,4'b0};
   assign increment=(Sweep)?setPoint:PI_control+{5'b0,cycle500Hz_d2,9'b0};
   //assign increment =setPoint;
-	
+
 endmodule
