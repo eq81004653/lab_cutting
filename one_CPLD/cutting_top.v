@@ -12,64 +12,64 @@ input  I,V,clk40MHz;
 
 
 //----------- Set the initial frequency SetPoint ------------------//
-//parameter setPoint=15'd13002;
+parameter setPoint=15'd13841;
 
-reg stop;
-reg Sweep;
+reg stop=1'd0;
+reg Sweep=1'd0;
 
 
-reg [14:0]setPoint; // 14700; freq = 35 kHz,13841=33k,14050=33.5k,14260=34k,14470=34.5k,14700=35k
-always @(posedge clk40MHz)begin
+//reg [14:0]setPoint=15'd13841; // 14700; freq = 35 kHz,13841=33k,14050=33.5k,14260=34k,14470=34.5k,14700=35k
+//always @(clk40MHz)begin
 //	setPoint<=(Din[4:0]<=5'd20)?(Din[4:0]<<7)+(Din[4:0]<<6)+(Din[4:0]<<4)+(Din[4:0]<<1)+15'd12582:setPoint;
 //	setPoint<=(Din[4:0]<=5'd20)?({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460:setPoint;
 //	Sweep<=(Din[4:0]==5'd23)?1'd1:(Din[4:0]==5'd24)?1'd0:Sweep;
 //	stop<=(Din[4:0]==5'd22)?1'd0:(Din[4:0]==5'd21)?1'd1:stop;
 
-	if(Din[4:0]<=5'd20)begin
-		setPoint<=({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460;
-//		setPoint<=setPoint;
-		stop<=stop;
-		Sweep<=Sweep;
-	end
-	else begin
-		if(Din[4:0]==5'd21)begin
-			setPoint<=setPoint;
-			stop<=1'd0;
-			Sweep<=Sweep;
-		end
+//	if(Din[4:0]<=5'd20)begin
+//		setPoint<=({Din[4:0],8'd0}-{Din[4:0],5'd0})+15'd12460;
+////		setPoint<=setPoint;
+//		stop<=stop;
+//		Sweep<=Sweep;
+//	end
+//	else begin
+//		if(Din[4:0]==5'd21)begin
+//			setPoint<=setPoint;
+//			stop<=1'd0;
+//			Sweep<=Sweep;
+//		end
+//
+//		else if(Din[4:0]==5'd22)begin
+//			setPoint<=setPoint;
+//			stop<=1'd1;
+//			Sweep<=Sweep;
+//		end
+//
+//		else if(Din[4:0]==5'd23)begin
+//			setPoint<=setPoint;
+//			stop<=stop;
+//			Sweep<=1'd1;
+//		end
+//
+//		else if(Din[4:0]==5'd24)begin
+//			setPoint<=setPoint;
+//			stop<=stop;
+//			Sweep<=1'd0;
+//		end
+//
+//		else if(Din[4:0]==5'd25)begin
+//			setPoint<=15'd12460;
+//			stop<=1'd1;
+//			Sweep<=1'd1;
+//		end
+//
+//		else begin
+//			setPoint<=setPoint;
+//			stop<=stop;
+//			Sweep<=Sweep;
+//		end
+//	end
 
-		else if(Din[4:0]==5'd22)begin
-			setPoint<=setPoint;
-			stop<=1'd1;
-			Sweep<=Sweep;
-		end
-
-		else if(Din[4:0]==5'd23)begin
-			setPoint<=setPoint;
-			stop<=stop;
-			Sweep<=1'd1;
-		end
-
-		else if(Din[4:0]==5'd24)begin
-			setPoint<=setPoint;
-			stop<=stop;
-			Sweep<=1'd0;
-		end
-
-		else if(Din[4:0]==5'd25)begin
-			setPoint<=15'd12460;
-			stop<=1'd0;
-			Sweep<=1'd1;
-		end
-
-		else begin
-			setPoint<=setPoint;
-			stop<=stop;
-			Sweep<=Sweep;
-		end
-	end
-
-end
+//end
 
 
 //wire stop;	
@@ -192,9 +192,9 @@ end
   wire signed [16:0] temp_accum_I;
   assign temp_accum_I = accum_I + {{7{delta[8]}},delta,1'b0};
 
-//  reg signed [16:0] accum_I={setPoint,2'b0};
+  reg signed [16:0] accum_I={setPoint,2'b0};
 
-	reg signed [16:0] accum_I;
+//	reg signed [16:0] accum_I;
 
 //  reg signed [16:0] temp_accum_I=17'd58800;
 
@@ -216,10 +216,10 @@ end
      // accumulator for integration	  
 
 //	  
-	  if(Sweep==1'b1)
-	    begin accum_I<={setPoint,2'b0};/*chang_a<=1'b0;chang_a<=1'b0;*/end
-	  else
-	    begin accum_I<=temp_accum_I;/*chang_a<=1'b1;chang_a<=1'b1;*/;end
+//	  if(Sweep==1'b1)
+//	    begin accum_I<={setPoint,2'b0};/*chang_a<=1'b0;chang_a<=1'b0;*/end
+//	  else
+//	    begin accum_I<=temp_accum_I;/*chang_a<=1'b1;chang_a<=1'b1;*/;end
 
 //    accum_I<=temp_accum_I;
   end
