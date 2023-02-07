@@ -27,7 +27,7 @@ reg [11:0]search=0;
 reg ready;
 reg [3:0]count=4'd0;
 
-reg [5:0]count_stste=5'd0;
+reg [9:0]count_stste=10'd0;
 
 
 always@(posedge clk)
@@ -104,7 +104,7 @@ begin
 		begin
 			count_stste<=count_stste+5'd1;
 			
-			if(count_stste==5'd14)
+			if(count_stste==10'd192)
 			begin
 				ready<=1'd1;
 				position_rx<=4'd0;
