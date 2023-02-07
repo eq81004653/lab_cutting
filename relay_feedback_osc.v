@@ -201,22 +201,26 @@ wire cycle;
 //  n_1=frequency*(2^24)/(50e6)  //
 //-------------------------------------//
 wire [14:0] n_ico;
-parameter[14:0] start_point=15'd20199;	//20133=60kHz
+parameter[14:0] start_point=15'd24140;	//20133=60kHz
 													//20803=62kHz
 reg [14:0]chang_point;						//20636=61.5kHz 
 													//20300=60.5kHz 
 													//20468=61kHz
 													
-reg [14:0]freq_sweep_chang=15'd17000;													
+wire [14:0]sweep_freq;
 													
-always@(posedge count[19])
-begin
-	freq_sweep_chang<=(freq_sweep_chang>=15'd24000)?freq_sweep_chang:freq_sweep_chang+15'd10;										
-end												
-													
+//reg [14:0]freq_sweep_chang=15'd17000;													
+//													
+//always@(posedge count[19])
+//begin
+//	freq_sweep_chang<=(freq_sweep_chang>=15'd24000)?freq_sweep_chang:freq_sweep_chang+15'd10;										
+//end												
+
+
+assign sweep_freq=(reset^delay_reset)?PI_control:sweep_freq;											
 													
 //assign n_ico=freq_sweep_chang;													
-//assign n_ico=PI_control+{7'b0,clk300Hz_d2,7'b0};	//with PI control
+//assign n_ico=PI_control+{8'b0,clk300Hz_d2,6'b0};	//with PI control
 //assign n_ico=start_point+{6'b0,clk300Hz_d2,8'b0};	//no PI control, test delta
 //assign n_ico=start_point;
 
@@ -232,11 +236,13 @@ end
 
 
 //assign n_ico=(!TX_FINISH||LCD_begin)?chang_point:(sweep==1'd1)?start_point:PI_control+{6'b0,clk300Hz_d2,8'b0};
-assign n_ico=(!TX_FINISH||LCD_begin/*||LCD_lock*/)?chang_point:(sweep==1'd1||stop_freq==1'b1)?start_point:PI_control+{8'b0,clk300Hz_d2,6'b0};
+//assign n_ico=(!TX_FINISH||LCD_begin/*||LCD_lock*/)?chang_point:(sweep==1'd1||stop_freq==1'b1)?start_point:PI_control+{8'b0,clk300Hz_d2,6'b0};
 
 
 //assign n_ico=(TX_FINISH)?start_point:chang_point;
 
+
+assign n_ico=(stop_freq==1'b0||delay_reset_chang==1'b0)?PI_control+{8'b0,clk300Hz_d2,6'b0}:sweep_freq;
 
 ICO U6_1(.out(cycle), .increment(n_ico), .clk50MHz(clk50MHz));
 
@@ -250,7 +256,18 @@ wire shutdown;
 assign shutdown=standby;	//output control by sw 
 assign pwm_drive=shutdown? 2'b0:pwm_out; 
 
-parameter pwm_in=8'd130;	//output power
+
+
+reg reset=0;
+reg delay_reset;
+
+reg [7:0]pwm_in_chang;
+wire [7:0]pwm_in;
+assign pwm_in=pwm_in_chang;
+
+
+
+//parameter pwm_in=8'd130;	//output power
 
 three_pulses_pwm2 U7(.pwm_drive(pwm_out),.in(pwm_in),.cycle(cycle),.clk100MHz(clk100MHz));
 
@@ -264,7 +281,12 @@ three_pulses_pwm2 U7(.pwm_drive(pwm_out),.in(pwm_in),.cycle(cycle),.clk100MHz(cl
 //                                                                           //
 //      with dead time equal to 0.52 us, 13 periods of a 25MHz clock.        //
 reg clk25MHz;
-always @(negedge clk50MHz) clk25MHz<=~clk25MHz; 
+always @(negedge clk50MHz) 
+begin 
+	clk25MHz<=~clk25MHz;
+	delay_reset<=reset;
+	reset<=(SW)?(LCD_run||LCD_OFF||LCD_LOCK||LCD_sweep||LCD_freq_cho!=0)?1'b1:reset:1'd0;
+end
 reg [3:0] k=4'b0;  
 always @(negedge clk25MHz) k<=k+4'b0001; 			// present index k
 wire [3:0] k_13;
@@ -330,12 +352,12 @@ assign clk10MHz_inv=~clk10MHz;
 reg [7:0] kk;
 always @(negedge clk10MHz_inv) kk<=kk+8'b00000001;
 wire [7:0] kk_N_u,k1,k2;
-parameter N=8'b01000100;//7'b1101000;  // 221
-parameter shift=8'd60;
+parameter N=8'b01000100;//68//7'b1101000;  // 221
+parameter shift=8'd5;
 //parameter shift=8'b00001000;
 assign kk_N_u=kk-u;//-{1'b0,u};  kk_N_u=kk-N-u;
-assign k1=kk-8'b00100000+shift;  		  //kk-32
-assign k2=kk-8'b01001010+shift;  		  //kk-74
+assign k1=kk-8'b00100000-shift;  		  //kk-32
+assign k2=kk-8'b01001010-shift;  		  //kk-74
 wire delayed_Iq;
 assign delayed_Iq=delay_line_Iq[kk_N_u];
 wire Iq,Vq,Is,Is_d;
@@ -406,8 +428,8 @@ reg TX=1'b1;
 reg TX_FINISH=1'b1;
 reg[19:0]TX_count_bit=20'b0;
 reg[8:0]TX_out;
-reg[12:0]TX_data;
-reg[5:0]TX_choose=6'b0;
+reg[15:0]TX_data;
+reg[5:0]TX_choose=6'd27;
 reg LCD_begin=1'b0;
 reg LCD_lock=1'b0;
 
@@ -417,6 +439,7 @@ reg [9:0]LCD_lock_count=10'd0;
 reg [9:0]LCD_begin_count=10'd0;
 reg [9:0]TX_FINISH_count=10'd0;
 reg [9:0]stop_freq_count=10'd0;
+
 
 reg sweep=1'd0;
 reg chang;
@@ -445,7 +468,8 @@ begin
 	
 	
 	current_chang<=(TX_FINISH_count==10'd90&&sweep==1'b1)?1'b1:1'b0;
-	stop_freq<=(TX_choose==6'd24&&stop_freq_flag==1'd1)?1'b0:(TX_choose==6'd0||TX_choose==6'd1||TX_choose==6'd13)?1'b1:stop_freq;
+//	stop_freq<=(TX_choose==6'd24&&stop_freq_flag==1'd1)?1'b0:(TX_choose==6'd0||TX_choose==6'd1||TX_choose==6'd13)?1'b1:stop_freq;
+	stop_freq<=(TX_choose==6'd25&&stop_freq_flag==1'd1)?1'b0:1'b1;
 	
 	
 	///////////////////////sweep/////////////////////////////
@@ -453,13 +477,13 @@ begin
 	if(LCD_sweep==1'b1) 		begin	sweep<=1'b1;run<=1'b0;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd0;end
 	
 	
-	else if(SW2==1'b0) 		begin	sweep<=1'b1;run<=1'b0;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd0;end
+//	else if(SW2==1'b0) 		begin	sweep<=1'b1;run<=1'b0;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd0;end
 	
 		
 	else if(sweep_flag==1'b1&&sweep==1'b1)
 		begin
 		
-		if(TX_choose==6'd13)
+		if(TX_choose==6'd14)
 			begin TX_choose<=TX_choose;sweep<=1'd0;chang<=chang;end
 		else 
 			begin TX_choose<=TX_choose+6'd1;sweep<=sweep;chang<=~chang; end
@@ -467,46 +491,46 @@ begin
 	
 	
 	/////////////////begin///////////////////////////////////	
-	else if(LCD_run==1'b1)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd1;end
+	else if(LCD_run==1'b1)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd2;end
 	
 	/////////////////OFF/////////////////////////////////////	
-	else if(LCD_OFF==1'b1)	begin	sweep<=1'b0;run<=1'b0;OFF<=1'b1;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd13;end
+	else if(LCD_OFF==1'b1)	begin	sweep<=1'b0;run<=1'b0;OFF<=1'b1;LOCK<=1'b0;freq_cho<=4'd0;TX_choose<=6'd14;end
 	
 	/////////////////LOCK/////////////////////////////////////
-	else if(LCD_LOCK==1'b1)	begin	sweep<=1'b0;run<=1'b0;OFF<=1'b0;LOCK<=1'b1;freq_cho<=4'd0;TX_choose<=6'd24;end
+	else if(LCD_LOCK==1'b1)	begin	sweep<=1'b0;run<=1'b0;OFF<=1'b0;LOCK<=1'b1;freq_cho<=4'd0;TX_choose<=6'd25;end
 	
 	/////////////////30k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd1)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd2;TX_choose<=6'd2;end
+	else if(LCD_freq_cho==4'd1)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd3;TX_choose<=6'd3;end
 	
 	/////////////////31k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd2)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd15;TX_choose<=6'd15;end
+	else if(LCD_freq_cho==4'd2)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd16;TX_choose<=6'd16;end
 	
 	/////////////////32k///////////////////////////////////
-	else if(LCD_freq_cho==4'd3)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd4;TX_choose<=6'd4;end
+	else if(LCD_freq_cho==4'd3)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd5;TX_choose<=6'd5;end
 	
 	/////////////////33k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd4)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd5;TX_choose<=6'd5;end
+	else if(LCD_freq_cho==4'd4)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd6;TX_choose<=6'd6;end
 	
 	/////////////////34k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd5)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd6;TX_choose<=6'd6;end
+	else if(LCD_freq_cho==4'd5)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd7;TX_choose<=6'd7;end
 	
 	/////////////////35k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd6)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd7;TX_choose<=6'd7;end
+	else if(LCD_freq_cho==4'd6)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd8;TX_choose<=6'd8;end
 	
 	/////////////////36k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd7)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd8;TX_choose<=6'd8;end
+	else if(LCD_freq_cho==4'd7)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd9;TX_choose<=6'd9;end
 	
 	/////////////////37k///////////////////////////////////
-	else if(LCD_freq_cho==4'd8)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd9;TX_choose<=6'd9;end
+	else if(LCD_freq_cho==4'd8)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd10;TX_choose<=6'd10;end
 	
 	/////////////////38k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd9)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd10;TX_choose<=6'd10;end
+	else if(LCD_freq_cho==4'd9)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd11;TX_choose<=6'd11;end
 	
 	/////////////////39k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd10)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd11;TX_choose<=6'd11;end
+	else if(LCD_freq_cho==4'd10)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd12;TX_choose<=6'd12;end
 	
 	/////////////////40k///////////////////////////////////	
-	else if(LCD_freq_cho==4'd11)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd12;TX_choose<=6'd12;end
+	else if(LCD_freq_cho==4'd11)	begin	sweep<=1'b0;run<=1'b1;OFF<=1'b0;LOCK<=1'b0;freq_cho<=4'd13;TX_choose<=6'd13;end
 	
 	
 	else 
@@ -520,6 +544,9 @@ end
 
 reg botton_count;
 reg SW2_delay;
+reg delay_reset_chang;
+reg [9:0]delay_reset_count=9'd0;
+
 
 
 //always@(posedge clk50MHz) 
@@ -527,25 +554,29 @@ always@(posedge count[18])
 begin
 
 
-	SW2_delay<=SW2;
-	if(SW2_delay==1'd1&&SW2==1'd0)begin botton_count<=botton_count+1'd1;end
+//	SW2_delay<=SW2;
+//	if(SW2_delay==1'd1&&SW2==1'd0)begin botton_count<=botton_count+1'd1;end
 	
-
+//	if(SW2==0)
+//	begin
+//		TX_FINISH<=1'd0;
+//	end
 
 	delay_chang<=chang;
 	TX_FINISH_count<=(chang^delay_chang==1'd0&&sweep==1'd1)?TX_FINISH_count+10'd1:10'd0;
-	TX_FINISH<=(TX_FINISH_count<=10'd27&&sweep==1'd1)?0:1;
+	TX_FINISH<=(TX_FINISH_count<=10'd29&&sweep==1'd1)?0:1;
 	
-	
-
 	
 
 	LCD_begin_count<=(run==1'd1||OFF==1'd1||LOCK==1'd1||freq_cho!=4'd0)?LCD_begin_count+10'd1:10'd0;
 	LCD_begin<=(LCD_begin_count<=10'd28&&(run==1'b1||OFF==1'b1||LOCK==1'd1||freq_cho!=4'd0))?1'd1:1'd0;				
 		
 	
-	stop_freq_count<=(TX_choose==6'd24)?(stop_freq_count<=10'd100)?stop_freq_count+10'd1:stop_freq_count:10'd0;
+	stop_freq_count<=(TX_choose==6'd25)?(stop_freq_count<=10'd100)?stop_freq_count+10'd1:stop_freq_count:10'd0;
 	stop_freq_flag<=(stop_freq_count>=10'd30)?1'd1:1'd0;
+	
+	delay_reset_count<=(reset==1'd1)?(delay_reset_count<=9'd30)?delay_reset_count+10'd1:delay_reset_count:10'd0;
+	delay_reset_chang<=(delay_reset_count>=9'd30)?1'd1:1'd0;
 	
 	
 	
@@ -564,36 +595,36 @@ begin
 	
 
 	case (TX_choose)
-		6'd2:begin  TX_data<=13'b0101010101011; end		//30kHz		0
-		6'd14:begin  TX_data<=13'b0101010101101; end		//30.5kHz	1
-		6'd3:begin  TX_data<=13'b0101010110011; end		//31kHz		2
-		6'd15:begin  TX_data<=13'b0101010110101; end		//31.5kHz	3
-		6'd4:begin  TX_data<=13'b0101011001011; end		//32kHz		4
-		6'd16:begin  TX_data<=13'b0101011001101; end		//32.5kHz	5
-		6'd5:begin  TX_data<=13'b0101011010011; end		//33kHz		6
-		6'd17:begin  TX_data<=13'b0101011010101; end		//33.5kHz	7
-		6'd6:begin  TX_data<=13'b0101100101011; end		//34kHz		8
-		6'd18:begin  TX_data<=13'b0101100101101; end		//34.5kHz	9
-		6'd7:begin  TX_data<=13'b0101100110011; end		//35kHz		10
-		6'd19:begin  TX_data<=13'b0101100110101; end		//35.5kHz	11
-		6'd8:begin  TX_data<=13'b0101101001011; end		//36kHz		12
-		6'd20:begin  TX_data<=13'b0101101010011; end		//36.5kHz	13
-		6'd9:begin  TX_data<=13'b0101101010101; end		//37kHz		14
-		6'd21:begin  TX_data<=13'b0110010101011; end		//37.5kHz	15
-		6'd10:begin  TX_data<=13'b0110010101101; end		//38kHz		16
-		6'd22:begin  TX_data<=13'b0110010110011; end		//38.5kHz	17
-		6'd11:begin  TX_data<=13'b0110010110101; end		//39kHz		18
-		6'd23:begin  TX_data<=13'b0110011001011; end		//39.5kHz	19
-		6'd12:begin  TX_data<=13'b0110011001101; end		//40kHz		20
-		6'd1:begin  TX_data<=13'b0110011010011; end		//RUN 		21
-		6'd13:begin  TX_data<=13'b0110011010101; end		//stop		22
-		6'd0:begin  TX_data<=13'b0110100101011; end		//SWEEP		23
-		6'd24:begin  TX_data<=13'b0110100101101; end		//LOCK  		24
-		default:	begin  TX_data<=13'b1111111111111; end
+		6'd3:begin	TX_data<=14'b01010101010110; end		//30kHz		0
+		6'd15:begin TX_data<=14'b01010101011010; end		//30.5kHz	1
+		6'd4:begin  TX_data<=14'b01010101100110; end		//31kHz		2
+		6'd16:begin TX_data<=14'b01010101101010; end		//31.5kHz	3
+		6'd5:begin  TX_data<=14'b01010110010110; end		//32kHz		4
+		6'd17:begin TX_data<=14'b01010110011010; end		//32.5kHz	5
+		6'd6:begin  TX_data<=14'b01010110100110; end		//33kHz		6
+		6'd18:begin TX_data<=14'b01010110101010; end		//33.5kHz	7
+		6'd7:begin  TX_data<=14'b01011001010110; end		//34kHz		8
+		6'd19:begin TX_data<=14'b01011001011010; end		//34.5kHz	9
+		6'd8:begin  TX_data<=14'b01011001100110; end		//35kHz		10
+		6'd20:begin TX_data<=14'b01011001101010; end		//35.5kHz	11
+		6'd9:begin  TX_data<=14'b01011010010110; end		//36kHz		12
+		6'd21:begin TX_data<=14'b01011010100110; end		//36.5kHz	13
+		6'd10:begin TX_data<=14'b01011010101010; end		//37kHz		14
+		6'd22:begin TX_data<=14'b01100101010110; end		//37.5kHz	15
+		6'd11:begin TX_data<=14'b01100101011010; end		//38kHz		16
+		6'd23:begin TX_data<=14'b01100101100110; end		//38.5kHz	17
+		6'd12:begin TX_data<=14'b01100101101010; end		//39kHz		18
+		6'd24:begin TX_data<=14'b01100110010110; end		//39.5kHz	19
+		6'd13:begin TX_data<=14'b01100110011010; end		//40kHz		20
+		6'd2:begin  TX_data<=14'b01100110100110; end		//RUN 		21
+		6'd14:begin TX_data<=14'b01100110101010; end		//stop		22
+		6'd0:begin  TX_data<=14'b01101001010110; end		//SWEEP		23
+		6'd1:begin  TX_data<=14'b01101001010110; end		//SWEEP		23
+		6'd27:begin TX_data<=14'b01101010101010; end		//teset
+		6'd25:begin TX_data<=14'b01101001011010; end		//LOCK  		24
+		default:	begin  TX_data<=14'b111111111111; end
 	endcase
 
-	
-	
 	
 	
 	if(TX_FINISH==1'b0||LCD_begin==1'b1/*||LCD_lock==1'b1*/)
@@ -610,9 +641,14 @@ begin
 			TX<=TX_data[TX_count_bit];
 		end
 		
+		pwm_in_chang=(TX)?8'd110:8'd160;
 		
-		chang_point=(TX)?15'd20200:15'd20300;
-		
+	end
+	else
+	begin
+		TX<=1;
+		pwm_in_chang=8'd110;
+		TX_count_bit<=20'b0;
 	end
 	
 end
@@ -620,7 +656,7 @@ end
 
 
 wire signed[8:0] theta_3deg;
-assign theta_3deg=theta-3'd15;
+assign theta_3deg=theta-3'd0;
 reg signed[8:0] theta_past,theta_f_past;
 
 always@(posedge clk300Hz)
