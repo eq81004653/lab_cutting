@@ -112,7 +112,7 @@ always @(negedge clk50M)begin
 	if(current_flag==1'b1)
 	begin 
 		read_current<=current;
-		map_current<={4'd0,11'd420-((read_current-11'd256)+((read_current-11'd256)>>4)+11'd40)};	
+		map_current<={4'd0,11'd320-((read_current-11'd256)+((read_current-11'd256)>>4)+11'd20)};	
 	end
 	
 	else begin
@@ -121,7 +121,7 @@ always @(negedge clk50M)begin
 	end
 	
 	shift_map_current<={map_current,4'd0};
-	true_map_current[botton2_counter]<=(TX_choose<=4'd12)?{shift_map_current[7:0],1'b0,shift_map_current[14:8]}:true_map_current[botton2_counter];
+	true_map_current[botton2_counter]<=(TX_choose<=4'd13&&TX_choose>=4'd3)?{shift_map_current[7:0],1'b0,shift_map_current[14:8]}:true_map_current[botton2_counter];
 
 
 end
@@ -131,8 +131,8 @@ reg current_flag_delay;
 
 always @(posedge clk20MHz) begin 
 	current_flag_delay<=current_flag;
-	sweep_count<=(sweep)?5'd0:(sweep_count<=4'd11&&current_flag==1'b1&&current_flag_delay==1'b0)?sweep_count+4'd1:sweep_count; 
-	botton2_counter<=(sweep)?5'd0:(sweep_count>=4'd2&&botton2_counter<=5'd9&&current_flag==1'b1&&current_flag_delay==1'b0&&TX_choose>=6'd2)?TX_choose[4:0]-5'd2:botton2_counter;
+	sweep_count<=(sweep)?5'd0:(sweep_count<=4'd12&&current_flag==1'b1&&current_flag_delay==1'b0)?sweep_count+4'd1:sweep_count; 
+	botton2_counter<=(sweep)?5'd0:(sweep_count>=4'd3&&botton2_counter<=5'd10&&current_flag==1'b1&&current_flag_delay==1'b0&&TX_choose>=6'd3)?TX_choose[4:0]-5'd3:botton2_counter;
 
 end
 
@@ -344,7 +344,7 @@ always @(negedge clk_1O5MHz) begin
 										 (botton2_counter==5'd7)?{96'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,64'h0000002100000000}:  //SPI 344bit
 										 (botton2_counter==5'd8)?{64'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,64'h0000002100000000}:  //SPI 376bit
 										 (botton2_counter==5'd9)?{32'h0,24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,true_map_current[9],16'h9055,64'h0000002100000000}:  //SPI 408bit
-										 (botton2_counter==5'd10)?{24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,true_map_current[9],16'h9055,true_map_current[10],16'h2057,64'h0000002100000000}:440'd0;end  	 //SPI 440bit					 
+										 (botton2_counter==5'd10)?{24'hB00230,true_map_current[0],16'h8047,true_map_current[1],16'h1049,true_map_current[2],16'hA04A,true_map_current[3],16'h304C,true_map_current[4],16'hC04D,true_map_current[5],16'h504F,true_map_current[6],16'hE050,true_map_current[7],16'h7052,true_map_current[8],16'h0054,true_map_current[9],16'h9055,true_map_current[10],16'h2057,64'h0000002100000000}:int;end  	 //SPI 440bit					 
 				
 				
 
